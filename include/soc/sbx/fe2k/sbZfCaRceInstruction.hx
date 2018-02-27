@@ -1,0 +1,201 @@
+/*  -*-  Mode:C; c-basic-offset:4 -*- */
+/*
+ * $Id: sbZfCaRceInstruction.hx 1.3.36.4 Broadcom SDK $
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ */
+
+
+#ifndef SB_ZF_ZFCARCEINSTRUCTION_H
+#define SB_ZF_ZFCARCEINSTRUCTION_H
+
+#define SB_ZF_ZFCARCEINSTRUCTION_SIZE_IN_BYTES 3
+#define SB_ZF_ZFCARCEINSTRUCTION_SIZE 3
+#define SB_ZF_ZFCARCEINSTRUCTION_M_UOPCODEMSB_BITS "19:18"
+#define SB_ZF_ZFCARCEINSTRUCTION_M_UOPCODELSB_BITS "17:16"
+#define SB_ZF_ZFCARCEINSTRUCTION_M_UOPCODESUSPENSION_BITS "15:12"
+#define SB_ZF_ZFCARCEINSTRUCTION_M_UOPCODEMISMATCH_BITS "11:8"
+#define SB_ZF_ZFCARCEINSTRUCTION_M_UOPERANDA_BITS "7:0"
+#define SB_ZF_ZFCARCEINSTRUCTION_OPMS_NORMAL_INSTRUCTION 0       
+#define SB_ZF_ZFCARCEINSTRUCTION_OPMS_NEW_RULE        2  // A [1:0] select result register to store result in result memory (requires 32 instructions wait before using)
+#define SB_ZF_ZFCARCEINSTRUCTION_OPMS_RESTART         3
+#define SB_ZF_ZFCARCEINSTRUCTION_OPMS_RESUME          1
+#define SB_ZF_ZFCARCEINSTRUCTION_OPLS_A_KEY        0   // A will use Key Memory to match with pattern
+#define SB_ZF_ZFCARCEINSTRUCTION_OPLS_A_RESULT     1   // A will use Result Memory to match with pattern: [7:6] resiger select [3:0] bit index select
+#define SB_ZF_ZFCARCEINSTRUCTION_OPLS_LPM          2   // Longest-prefix match  
+#define SB_ZF_ZFCARCEINSTRUCTION_OPLS_A_MULTIPORT  3        
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_ONE           10
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_ZERO          5
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_XNOR          12
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_XOR           3
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_GREATER_THAN  1
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_LESS_THAN     7
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_OR            11
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_NOR           4
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_AND           13
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_NAND          2
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_KEY_INV       6
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_KEY           9
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_PAT           15
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_PAT_INV       0
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_MASK_INV_KEY  14
+#define SB_ZF_ZFCARCEINSTRUCTION_SM_MASK_INV_PAT  8
+#define SB_ZF_ZFCARCEINSTRUCTION_NEW_RULE  0 //20'h8_000X --  OPMS_NEW_RULE, OPLS_A_KEY,  SM_PAT_INV, SM_PAT_INV,   X (reg X)
+#define SB_ZF_ZFCARCEINSTRUCTION_RESTART   1 //20'hC_0000 --  OPMS_RESTART,  OPLS_A_KEY,  SM_PAT_INV, SM_PAT_INV,     0
+#define SB_ZF_ZFCARCEINSTRUCTION_LPM       2 //20'h2_0000 --  OPLS_NORMAL_INSTRUCTION, OPLS_LPM, SM_PAT_INV, SM_PAT_INV, 0
+#define SB_ZF_ZFCARCEINSTRUCTION_RESUME    3 //20'h4_5500 --  OPMS_RESUME,   OPLS_A_KEY,  SM_ZERO,    SM_ZERO,        0
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT 4 // 20'h3_5600   OPMS_NORMAL_INSTRUCTION  OPLS_A_MULTIPORT SM_ZERO, SM_KEY_INV,   0
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_PAT      6 //     OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_PAT,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_KEY      7 //     OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_KEY,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_NAND     8 //     OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_NAND, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_AND      9 //     OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_AND,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_EQ       10 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_ZERO, SM_XOR,  user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_NEQ      11 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_XOR,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_KEYINV   12 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_PATINV   13 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_MASKINVK 14 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_MASK_INV_KEY, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_MASKINVP 15 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_MASK_INV_PAT, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_SUSPEND  16 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_ONE,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_MISMATCH 17 //    OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_ZERO,  SM_ONE, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_LESS_THAN 18//   OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_LESS_THAN,   SM_GREATER_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_KEY_GREATER_THAN  19// OPMS_NORMAL_INSTRUCTION, OPLS_A_KEY,  SM_GREATER_THAN,   SM_LESS_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_PAT      20// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_PAT,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_KEY      21// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_KEY,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_NAND     22// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_NAND, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_AND      23// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_ZERO, SM_AND,  user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_EQ       24// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_ZERO, SM_XOR,  user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_NEQ      25// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_XOR,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_KEYINV   26// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_PATINV   27// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_MASKINVK 28// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_MASK_INV_KEY, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_MASKINVP 29// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_MASK_INV_PAT, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_SUSPEND  30// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_ONE,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_MISMATCH 31// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_ZERO,  SM_ONE, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_LESS_THAN  32// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_LESS_THAN,   SM_GREATER_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_RESULT_GREATER_THAN      33// OPMS_NORMAL_INSTRUCTION, OPLS_A_RESULT,  SM_GREATER_THAN,   SM_LESS_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_PAT      34// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_PAT,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_KEY      35// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_KEY,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_NAND     36// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_NAND, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_AND      37// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_ZERO, SM_AND,  user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_EQ       38// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_ZERO, SM_XOR,  user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_NEQ      39// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_XOR,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_KEYINV   40// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_PATINV   41// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_KEY_INV, SM_ZERO, user_a[7:0] 
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_MASKINVK 42// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_MASK_INV_KEY, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_MASKINVP 43// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_MASK_INV_PAT, SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_SUSPEND  44// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_ONE,  SM_ZERO, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_MISMATCH 45// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_ZERO,  SM_ONE, user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_LESS_THAN  46// OPMS_NORMAL_INSTRUCTION, OPLS_A_,MULTIPORT  SM_LESS_THAN,   SM_GREATER_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_MULTIPORT_GREATER_THAN      47// OPMS_NORMAL_INSTRUCTION, OPLS_A_MULTIPORT,  SM_GREATER_THAN,   SM_LESS_THAN,   user_a[7:0]
+#define SB_ZF_ZFCARCEINSTRUCTION_USE_SPRINT
+
+
+typedef struct _sbZfCaRceInstruction {
+  uint32_t m_uOpcodeMsb;
+  uint32_t m_uOpcodeLsb;
+  uint32_t m_uOpcodeSuspension;
+  uint32_t m_uOpcodeMismatch;
+  uint32_t m_uOperandA;
+} sbZfCaRceInstruction_t;
+
+uint32_t
+sbZfCaRceInstruction_Pack(sbZfCaRceInstruction_t *pFrom,
+                          uint8_t *pToData,
+                          uint32_t nMaxToDataIndex);
+void
+sbZfCaRceInstruction_Unpack(sbZfCaRceInstruction_t *pToStruct,
+                            uint8_t *pFromData,
+                            uint32_t nMaxToDataIndex);
+void
+sbZfCaRceInstruction_InitInstance(sbZfCaRceInstruction_t *pFrame);
+
+#define SB_ZF_CARCEINSTRUCTION_SET_OPMS(nFromData,pToData,nMaxToDataIndex) \
+          do { \
+           (pToData)[2] = ((pToData)[2] & ~(0x03 << 2)) | (((nFromData) & 0x03) << 2); \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_SET_OPLS(nFromData,pToData,nMaxToDataIndex) \
+          do { \
+           (pToData)[2] = ((pToData)[2] & ~0x03) | ((nFromData) & 0x03); \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_SET_OPS(nFromData,pToData,nMaxToDataIndex) \
+          do { \
+           (pToData)[1] = ((pToData)[1] & ~(0x0f << 4)) | (((nFromData) & 0x0f) << 4); \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_SET_OPM(nFromData,pToData,nMaxToDataIndex) \
+          do { \
+           (pToData)[1] = ((pToData)[1] & ~0x0f) | ((nFromData) & 0x0f); \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_SET_OPRA(nFromData,pToData,nMaxToDataIndex) \
+          do { \
+           (pToData)[0] = ((nFromData)) & 0xFF; \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_GET_OPMS(nToData,pFromData,nMaxFromDataIndex) \
+          do { \
+           (nToData) = (uint32_t) ((pFromData)[2] >> 2) & 0x03; \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_GET_OPLS(nToData,pFromData,nMaxFromDataIndex) \
+          do { \
+           (nToData) = (uint32_t) ((pFromData)[2]) & 0x03; \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_GET_OPS(nToData,pFromData,nMaxFromDataIndex) \
+          do { \
+           (nToData) = (uint32_t) ((pFromData)[1] >> 4) & 0x0f; \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_GET_OPM(nToData,pFromData,nMaxFromDataIndex) \
+          do { \
+           (nToData) = (uint32_t) ((pFromData)[1]) & 0x0f; \
+          } while(0)
+
+#define SB_ZF_CARCEINSTRUCTION_GET_OPRA(nToData,pFromData,nMaxFromDataIndex) \
+          do { \
+           (nToData) = (uint32_t) (pFromData)[0] ; \
+          } while(0)
+
+#endif

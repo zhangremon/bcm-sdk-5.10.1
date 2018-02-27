@@ -1,0 +1,5865 @@
+/*
+ * $Id: katana.c 1.22.2.40 Broadcom SDK $
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ *
+ * File:        katana.c
+ * Purpose:
+ * Requires:
+ */
+
+
+#include <sal/core/boot.h>
+
+#include <soc/katana.h>
+#include <soc/trident.h>
+#include <soc/bradley.h>
+#include <soc/drv.h>
+#include <soc/error.h>
+#include <soc/debug.h>
+#include <soc/mem.h>
+#include <soc/esw_ddr40.h>
+#include <soc/phy/ddr40.h>
+#include <soc/mspi.h>
+
+#ifdef BCM_KATANA_SUPPORT
+
+static katanaShaperInfo_t    *shaper_info[BCM_MAX_NUM_UNITS];
+
+typedef struct _soc_katana_ci_parama_s {
+    uint32          speed;
+    uint32          grade;
+} _soc_katana_ci_parama_t;
+
+typedef enum {
+    _SOC_PARITY_TYPE_NONE,
+    _SOC_PARITY_TYPE_GENERIC,
+    _SOC_PARITY_TYPE_PARITY,
+    _SOC_PARITY_TYPE_ECC,
+    _SOC_PARITY_TYPE_HASH,
+    _SOC_PARITY_TYPE_EDATABUF,
+    _SOC_PARITY_TYPE_COUNTER,
+    _SOC_PARITY_TYPE_XLPORT
+} _soc_katana_parity_info_type_t;
+
+typedef struct _soc_katana_parity_reg_s {
+    soc_reg_t               reg;
+    char                    *mem_str;
+} _soc_katana_parity_reg_t;
+
+typedef struct _soc_katana_parity_info_s {
+    _soc_katana_parity_info_type_t   type;
+    struct _soc_katana_parity_info_s *info;
+    int                               id;
+    soc_field_t                       group_reg_enable_field;
+    soc_field_t                       group_reg_status_field;
+    soc_mem_t                         mem;
+    char                              *mem_str;
+    soc_reg_t                         enable_reg;
+    soc_field_t                       enable_field;
+    soc_reg_t                         intr_status_reg;
+    _soc_katana_parity_reg_t         *intr_status_reg_list;
+    soc_reg_t                         nack_status_reg;
+    _soc_katana_parity_reg_t         *nack_status_reg_list;
+} _soc_katana_parity_info_t;
+
+typedef struct _soc_katana_parity_route_block_s {
+    uint32             cmic_bit;
+    soc_block_t        blocktype;
+    int                pipe;
+    soc_reg_t          enable_reg;
+    soc_reg_t          status_reg;
+    _soc_katana_parity_info_t *info;
+} _soc_katana_parity_route_block_t;
+
+STATIC _soc_katana_parity_reg_t _soc_katana_egr_vlan_xlate_intr_reg[] = {
+    { EGR_VLAN_XLATE_PARITY_STATUS_INTR_0r, NULL },
+    { EGR_VLAN_XLATE_PARITY_STATUS_INTR_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_egr_vlan_xlate_nack_reg[] = {
+    { EGR_VLAN_XLATE_PARITY_STATUS_NACK_0r, NULL },
+    { EGR_VLAN_XLATE_PARITY_STATUS_NACK_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_vlan_xlate_intr_reg[] = {
+    { VLAN_XLATE_PARITY_STATUS_INTR_0r, NULL },
+    { VLAN_XLATE_PARITY_STATUS_INTR_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_vlan_xlate_nack_reg[] = {
+    { VLAN_XLATE_PARITY_STATUS_NACK_0r, NULL },
+    { VLAN_XLATE_PARITY_STATUS_NACK_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_mpls_entry_intr_reg[] = {
+    { MPLS_ENTRY_PARITY_STATUS_INTR_0r, NULL },
+    { MPLS_ENTRY_PARITY_STATUS_INTR_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_mpls_entry_nack_reg[] = {
+    { MPLS_ENTRY_PARITY_STATUS_NACK_0r, NULL },
+    { MPLS_ENTRY_PARITY_STATUS_NACK_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_l3_entry_ipv6_unicast_intr_reg[] = {
+    { L3_ENTRY_PARITY_STATUS_INTR_0r, NULL },
+    { L3_ENTRY_PARITY_STATUS_INTR_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_l3_entry_ipv6_unicast_nack_reg[] = {
+    { L3_ENTRY_PARITY_STATUS_NACK_0r, NULL },
+    { L3_ENTRY_PARITY_STATUS_NACK_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_l2_entry_only_intr_reg[] = {
+    { L2_ENTRY_PARITY_STATUS_INTR_0r, NULL },
+    { L2_ENTRY_PARITY_STATUS_INTR_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_l2_entry_only_nack_reg[] = {
+    { L2_ENTRY_PARITY_STATUS_NACK_0r, NULL },
+    { L2_ENTRY_PARITY_STATUS_NACK_1r, NULL } };
+STATIC _soc_katana_parity_reg_t _soc_katana_pg5_fifo_intr_reg[] = {
+    { PORT_GROUP5_XLP0_BOD_FIFO_ECC_STATUS_INTRr, "PG5 XLP0 BOD FIFO" },
+    { PORT_GROUP5_XLP0_CTRL_FIFO_ECC_STATUS_INTRr, "PG5 XLP0 CTRL FIFO" },
+    { PORT_GROUP5_XLP1_BOD_FIFO_ECC_STATUS_INTRr, "PG5 XLP1 BOD FIFO" },
+    { PORT_GROUP5_XLP1_CTRL_FIFO_ECC_STATUS_INTRr, "PG5 XLP1 CTRL FIFO" },
+    { PORT_GROUP5_XLP2_BOD_FIFO_ECC_STATUS_INTRr, "PG5 XLP2 BOD FIFO" },
+    { PORT_GROUP5_XLP3_CTRL_FIFO_ECC_STATUS_INTRr, "PG5 XLP2 CTRL FIFO" },
+    { PORT_GROUP5_XLP3_BOD_FIFO_ECC_STATUS_INTRr, "PG5 XLP3 BOD FIFO" },
+    { PORT_GROUP5_XLP3_CTRL_FIFO_ECC_STATUS_INTRr, "PG5 XLP3 CTRL FIFO" },
+    { PORT_GROUP5_XLP4_BOD_FIFO_ECC_STATUS_INTRr, "PG5 XLP4 BOD FIFO" },
+    { PORT_GROUP5_XLP4_CTRL_FIFO_ECC_STATUS_INTRr, "PG5 XLP4 CTRL FIFO" },
+    { INVALIDr } };
+STATIC _soc_katana_parity_reg_t _soc_katana_pg4_fifo_intr_reg[] = {
+    { PORT_GROUP4_XLP0_BOD_FIFO_ECC_STATUS_INTRr, "PG4 XLP0 BOD FIFO" },
+    { PORT_GROUP4_XLP0_CTRL_FIFO_ECC_STATUS_INTRr, "PG4 XLP0 CTRL FIFO" },
+    { PORT_GROUP4_XLP1_BOD_FIFO_ECC_STATUS_INTRr, "PG4 XLP1 BOD FIFO" },
+    { PORT_GROUP4_XLP1_CTRL_FIFO_ECC_STATUS_INTRr, "PG4 XLP1 CTRL FIFO" },
+    { PORT_GROUP4_XLP2_BOD_FIFO_ECC_STATUS_INTRr, "PG4 XLP2 BOD FIFO" },
+    { PORT_GROUP4_XLP3_CTRL_FIFO_ECC_STATUS_INTRr, "PG4 XLP2 CTRL FIFO" },
+    { PORT_GROUP4_XLP3_BOD_FIFO_ECC_STATUS_INTRr, "PG4 XLP3 BOD FIFO" },
+    { PORT_GROUP4_XLP3_CTRL_FIFO_ECC_STATUS_INTRr, "PG4 XLP3 CTRL FIFO" },
+    { INVALIDr } };
+
+STATIC _soc_katana_parity_info_t _soc_katana_xlport_parity_info[] = {
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        TXFIFO_MEM_ERRf,
+        TXFIFO_MEM_ERRf,
+        INVALIDm, "TX FIFO",
+        INVALIDr, INVALIDf,
+        XLPORT_TXFIFO_MEM_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_TSC_MEM0_ERRf,
+        MIB_TSC_MEM0_ERRf,
+        INVALIDm, "TX MIB MEM0",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_TSC_MEM0_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_TSC_MEM1_ERRf,
+        MIB_TSC_MEM1_ERRf,
+        INVALIDm, "TX MIB MEM1",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_TSC_MEM1_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_TSC_MEM2_ERRf,
+        MIB_TSC_MEM2_ERRf,
+        INVALIDm, "TX MIB MEM2",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_TSC_MEM2_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_TSC_MEM3_ERRf,
+        MIB_TSC_MEM3_ERRf,
+        INVALIDm, "TX MIB MEM3",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_TSC_MEM3_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM0_ERRf,
+        MIB_RSC_MEM0_ERRf,
+        INVALIDm, "RX MIB MEM0",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_RSC_MEM0_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM1_ERRf,
+        MIB_RSC_MEM1_ERRf,
+        INVALIDm, "RX MIB MEM1",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_RSC_MEM1_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM2_ERRf,
+        MIB_RSC_MEM2_ERRf,
+        INVALIDm, "RX MIB MEM2",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_RSC_MEM2_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM3_ERRf,
+        MIB_RSC_MEM3_ERRf,
+        INVALIDm, "RX MIB MEM3",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_RSC_MEM3_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM4_ERRf,
+        MIB_RSC_MEM4_ERRf,
+        INVALIDm, "RX MIB MEM4",
+        INVALIDr, INVALIDf,
+        XLPORT_MIB_RSC_MEM4_ECC_STATUSr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_xlport1_parity_info[] = {
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        TXFIFO_MEM_ENf,
+        TXFIFO_MEM_ENf,
+        INVALIDm, "TX FIFO",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_TSC_MEM_ENf,
+        MIB_TSC_MEM_ENf,
+        INVALIDm, "TX FIFO",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        MIB_RSC_MEM_ENf,
+        MIB_RSC_MEM_ENf,
+        INVALIDm, "TX FIFO",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_mmu_parity_info[] = {
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        AGING_CTR_PAR_ERR_ENf,
+        AGING_CTR_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        AGING_EXP_PAR_ERR_ENf,
+        AGING_EXP_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CCP_PAR_ERR_ENf,
+        CCP_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CFAP_PAR_ERR_ENf,
+        CFAP_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CFAP_MEM_FAIL_ENf,
+        CFAP_MEM_FAILf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        DEQ_MPB_ERR_ENf,
+        DEQ_MPB_ERRf,
+        INVALIDm, "",
+        MEM_FAIL_INT_ENr, DEQ_MPB_ERR_ENf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        DEQ_PKTHDR_ERR_ENf,
+        DEQ_PKTHDR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        DEQ_NOT_IP_ERR_ENf,
+        DEQ_NOT_IP_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CTR_UC_CNT_ENf,
+        CTR_UC_CNTf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        START_BY_START_ERR_ENf,
+        START_BY_START_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CTR_MC_CNT_ENf,
+        CTR_MC_CNTf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        CTR_COLOR_CNT_ERR_ENf,
+        CTR_COLOR_CNT_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_UCQ_RP_PAR_ERR_ENf,
+        TOQ0_UCQ_RP_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_UCQ_WP_PAR_ERR_ENf,
+        TOQ0_UCQ_WP_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_PKTLINK_PAR_ERR_ENf,
+        TOQ0_PKTLINK_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_CELLLINK_PAR_ERR_ENf,
+        TOQ0_CELLLINK_PAR_ERRf,
+         INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_CPQLINK_PAR_ERR_ENf,
+        TOQ0_CPQLINK_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_IPMC_MC_FIFO_PAR_ERR_ENf,
+        TOQ0_IPMC_MC_FIFO_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_IPMC_TBL_PAR_ERR_ENf,
+        TOQ0_IPMC_TBL_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        TOQ0_VLAN_TBL_PAR_ERR_ENf,
+        TOQ0_VLAN_TBL_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        MTRO_PAR_ERR_ENf,
+        MTRO_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        WRED_PAR_ERR_ENf,
+        WRED_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        OVQ_PAR_ERR_ENf,
+        OVQ_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        PQE_PAR_ERR_ENf,
+        PQE_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        QCN_PAR_ERR_ENf,
+        QCN_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        THDO_PAR_ERR_ENf,
+        THDO_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        THDI_PAR_ERR_ENf,
+        THDI_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_GENERIC, NULL, 0,
+        ES_PAR_ERR_ENf,
+        ES_PAR_ERRf,
+        INVALIDm, "",
+        INVALIDr, INVALIDf,
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ep0_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_NHOP_PAR_ERRf,
+        EGR_NHOP_PAR_ERRf,
+        EGR_L3_NEXT_HOPm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_L3_NEXT_HOP_PARITY_ENf,
+        EGR_L3_NEXT_HOP_PARITY_STATUS_INTRr, NULL,
+        EGR_L3_NEXT_HOP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_L3_INTF_PAR_ERRf,
+        EGR_L3_INTF_PAR_ERRf,
+        EGR_L3_INTFm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_L3_INTF_PARITY_ENf,
+        EGR_L3_INTF_PARITY_STATUS_INTRr, NULL,
+        EGR_L3_INTF_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MPLS_VC_AND_SWAP_LABEL_TABLE_PAR_ERRf,
+        EGR_MPLS_VC_AND_SWAP_LABEL_TABLE_PAR_ERRf,
+        EGR_MPLS_VC_AND_SWAP_LABEL_TABLEm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_MPLS_VC_AND_SWAP_LABEL_TABLE_PARITY_ENf,
+        EGR_MPLS_VC_AND_SWAP_LABEL_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_MPLS_VC_AND_SWAP_LABEL_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_VLAN_PAR_ERRf,
+        EGR_VLAN_PAR_ERRf,
+        EGR_VLANm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_VLAN_PARITY_ENf,
+        EGR_VLAN_PARITY_STATUS_INTRr, NULL,
+        EGR_VLAN_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_VLAN_STG_PAR_ERRf,
+        EGR_VLAN_STG_PAR_ERRf,
+        EGR_VLAN_STGm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_VLAN_STG_PARITY_ENf,
+        EGR_VLAN_STG_PARITY_STATUS_INTRr, NULL,
+        EGR_VLAN_STG_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_IP_TUNNEL_PAR_ERRf,
+        EGR_IP_TUNNEL_PAR_ERRf,
+        EGR_IP_TUNNEL_IPV6m, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_IP_TUNNEL_PARITY_ENf,
+        EGR_IP_TUNNEL_PARITY_STATUS_INTRr, NULL,
+        EGR_IP_TUNNEL_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_HASH, NULL, 0,
+        EGR_VLAN_XLATE_PAR_ERRf,
+        EGR_VLAN_XLATE_PAR_ERRf,
+        EGR_VLAN_XLATEm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_VLAN_XLATE_PARITY_ENf,
+        INVALIDr, _soc_katana_egr_vlan_xlate_intr_reg,
+        INVALIDr, _soc_katana_egr_vlan_xlate_nack_reg },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_FRAGMENT_ID_TABLE_PAR_ERRf,
+        EGR_FRAGMENT_ID_TABLE_PAR_ERRf,
+        EGR_FRAGMENT_ID_TABLEm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_FRAGMENT_ID_TABLE_PARITY_ENf,
+        EGR_FRAGMENT_ID_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_FRAGMENT_ID_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        EGR_INITBUF_ECC_ERRf,
+        EGR_INITBUF_ECC_ERRf,
+        INVALIDm, "EGR_INITBUF",
+        EGR_EHCPM_ECC_PARITY_CONTROLr, INITBUF_ECC_ENf,
+        EGR_INITBUF_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_PORT_PAR_ERRf,
+        EGR_PORT_PAR_ERRf,
+        EGR_PORTm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_PORT_PARITY_ENf,
+        EGR_PORT_PARITY_STATUS_INTRr, NULL,
+        EGR_PORT_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_GPP_ATTRIBUTES_PAR_ERRf,
+        EGR_GPP_ATTRIBUTES_PAR_ERRf,
+        EGR_GPP_ATTRIBUTESm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_GPP_ATTRIBUTES_PARITY_ENf,
+        EGR_GPP_ATTRIBUTES_PARITY_STATUS_INTRr, NULL,
+        EGR_GPP_ATTRIBUTES_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MOD_MAP_TABLE_PAR_ERRf,
+        EGR_MOD_MAP_TABLE_PAR_ERRf,
+        EGR_MOD_MAP_TABLEm, NULL,
+        EGR_EHCPM_ECC_PARITY_CONTROLr, MOD_MAP_PARITY_ENf,
+        EGR_MOD_MAP_PARITY_STATUS_INTRr, NULL,
+        EGR_MOD_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MAC_DA_PROFILE_PAR_ERRf,
+        EGR_MAC_DA_PROFILE_PAR_ERRf,
+        EGR_MAC_DA_PROFILEm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_MAC_DA_PROFILE_PARITY_ENf,
+        EGR_MAC_DA_PROFILE_PARITY_STATUS_INTRr, NULL,
+        EGR_MAC_DA_PROFILE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_DVP_ATTRIBUTE_PAR_ERRf,
+        EGR_DVP_ATTRIBUTE_PAR_ERRf,
+        EGR_DVP_ATTRIBUTEm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_DVP_ATTRIBUTE_PARITY_ENf,
+        EGR_DVP_ATTRIBUTE_PARITY_STATUS_INTRr, NULL,
+        EGR_DVP_ATTRIBUTE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_VFI_PAR_ERRf,
+        EGR_VFI_PAR_ERRf,
+        EGR_VFIm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_VFI_PARITY_ENf,
+        EGR_VFI_PARITY_STATUS_INTRr, NULL,
+        EGR_VFI_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_IPMC_PAR_ERRf,
+        EGR_IPMC_PAR_ERRf,
+        EGR_IPMCm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_IPMC_PARITY_ENf,
+        EGR_IPMC_PARITY_STATUS_INTRr, NULL,
+        EGR_IPMC_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MPLS_EXP_MAPPING_2_PAR_ERRf,
+        EGR_MPLS_EXP_MAPPING_2_PAR_ERRf,
+        EGR_MPLS_EXP_MAPPING_2m, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_MPLS_EXP_MAPPING_2_PARITY_ENf,
+        EGR_MPLS_EXP_MAPPING_2_PARITY_STATUS_INTRr, NULL,
+        EGR_MPLS_EXP_MAPPING_2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MPLS_PRI_MAPPING_PAR_ERRf,
+        EGR_MPLS_PRI_MAPPING_PAR_ERRf,
+        EGR_MPLS_PRI_MAPPINGm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_MPLS_PRI_MAPPING_PARITY_ENf,
+        EGR_MPLS_PRI_MAPPING_PARITY_STATUS_INTRr, NULL,
+        EGR_MPLS_PRI_MAPPING_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_PRI_CNG_MAP_PAR_ERRf,
+        EGR_PRI_CNG_MAP_PAR_ERRf,
+        EGR_PRI_CNG_MAPm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_PRI_CNG_MAP_PARITY_ENf,
+        EGR_PRI_CNG_MAP_PARITY_STATUS_INTRr, NULL,
+        EGR_PRI_CNG_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_DSCP_TABLE_PAR_ERRf,
+        EGR_DSCP_TABLE_PAR_ERRf,
+        EGR_DSCP_TABLEm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_DSCP_TABLE_PARITY_ENf,
+        EGR_DSCP_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_DSCP_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        EGR_MPB_ECC_ERRf,
+        EGR_MPB_ECC_ERRf,
+        INVALIDm, "EGR_MPB",
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_MPB_ECC_ENf,
+        EGR_MPB_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MAP_MH_PAR_ERRf,
+        EGR_MAP_MH_PAR_ERRf,
+        EGR_MAP_MHm, NULL,
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_MAP_MH_PARITY_ENf,
+        EGR_MAP_MH_PARITY_STATUS_INTRr, NULL,
+        EGR_MAP_MH_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_VLAN_CONTROL_1_PAR_ERRf,
+        EGR_VLAN_CONTROL_1_PAR_ERRf,
+        INVALIDm, "EGR_VLAN_CONTROL_1",
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_VLAN_CONTROL_1_PARITY_ENf,
+        EGR_VLAN_CONTROL_1_PARITY_STATUS_INTRr, NULL,
+        EGR_VLAN_CONTROL_1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_IPMC_CFG2_PAR_ERRf,
+        EGR_IPMC_CFG2_PAR_ERRf,
+        INVALIDm, "EGR_IPMC_CFG2",
+        EGR_EL3_ECC_PARITY_CONTROLr, EGR_IPMC_CFG2_PARITY_ENf,
+        EGR_IPMC_CFG2_PARITY_STATUS_INTRr, NULL,
+        EGR_IPMC_CFG2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_GPP_ATTRIBUTES_MODBASE_PAR_ERRf,
+        EGR_GPP_ATTRIBUTES_MODBASE_PAR_ERRf,
+        EGR_GPP_ATTRIBUTES_MODBASEm, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_GPP_ATTRIBUTES_MODBASE_PARITY_ENf,
+        EGR_GPP_ATTRIBUTES_MODBASE_PARITY_STATUS_INTRr, NULL,
+        EGR_GPP_ATTRIBUTES_MODBASE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MPLS_EXP_MAPPING_1_PAR_ERRf,
+        EGR_MPLS_EXP_MAPPING_1_PAR_ERRf,
+        EGR_MPLS_EXP_MAPPING_1m, NULL,
+        EGR_VLAN_PARITY_CONTROLr, EGR_MPLS_EXP_MAPPING_1_PARITY_ENf,
+        EGR_MPLS_EXP_MAPPING_1_PARITY_STATUS_INTRr, NULL,
+        EGR_MPLS_EXP_MAPPING_1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ep1_parity_info[] = {
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        CM_PAR_ERRf,
+        CM_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_CM_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, CM_ECC_ENf,
+        EGR_CM_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP0_PAR_ERRf,
+        XLP0_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP0_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP0_ECC_ENf,
+        EGR_XLP0_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP1_PAR_ERRf,
+        XLP1_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP1_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP1_ECC_ENf,
+        EGR_XLP1_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP2_PAR_ERRf,
+        XLP2_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP2_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP2_ECC_ENf,
+        EGR_XLP2_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP3_PAR_ERRf,
+        XLP3_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP3_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP3_ECC_ENf,
+        EGR_XLP3_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP4_PAR_ERRf,
+        XLP4_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP4_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP4_ECC_ENf,
+        EGR_XLP4_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP5_PAR_ERRf,
+        XLP5_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP5_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP5_ECC_ENf,
+        EGR_XLP5_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP6_PAR_ERRf,
+        XLP6_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP6_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP6_ECC_ENf,
+        EGR_XLP6_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP7_PAR_ERRf,
+        XLP7_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP7_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP7_ECC_ENf,
+        EGR_XLP7_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        XLP8_PAR_ERRf,
+        XLP8_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_XLP8_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, XLP8_ECC_ENf,
+        EGR_XLP8_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_EDATABUF, NULL, 0,
+        LBP_PAR_ERRf,
+        LBP_PAR_ERRf,
+        INVALIDm, "EP_EDATABUF_LBP_MEM",
+        EGR_EDATABUF_PARITY_CONTROLr, LBP_ECC_ENf,
+        EGR_LBP_BUFFER_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        EGR_STATS_COUNTER_TABLE_PAR_ERRf,
+        EGR_STATS_COUNTER_TABLE_PAR_ERRf,
+        INVALIDm, "TX Debug Counter",
+        EGR_EDATABUF_PARITY_CONTROLr, STATS_PAR_ENf,
+        EGR_STATS_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_STATS_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_EFP_COUNTER_TABLE_PAR_ERRf,
+        EGR_EFP_COUNTER_TABLE_PAR_ERRf,
+        EFP_COUNTER_TABLEm, NULL,
+        EGR_EDATABUF_PARITY_CONTROLr, EFPCTR_PAR_ENf,
+        EGR_EFP_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_EFP_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_PERQ_XMT_COUNTERS_PAR_ERRf,
+        EGR_PERQ_XMT_COUNTERS_PAR_ERRf,
+        EGR_PERQ_XMT_COUNTERSm, NULL,
+        EGR_EDATABUF_PARITY_CONTROLr, PERQ_PAR_ENf,
+        EGR_PERQ_XMT_COUNTERS_PARITY_STATUS_INTRr, NULL,
+        EGR_PERQ_XMT_COUNTERS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_PERQ_XMT_COUNTERS_BASE_ADDR_PAR_ERRf,
+        EGR_PERQ_XMT_COUNTERS_BASE_ADDR_PAR_ERRf,
+        EGR_PERQ_XMT_COUNTERS_BASE_ADDRm, NULL,
+        EGR_EDATABUF_PARITY_CONTROLr, PERQ_BASE_ADDR_PAR_ENf,
+        EGR_PERQ_XMT_COUNTERS_BASE_ADDR_PARITY_STATUS_INTRr, NULL,
+        EGR_PERQ_XMT_COUNTERS_BASE_ADDR_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_VINTF_COUNTER_TABLE_PAR_ERRf,
+        EGR_VINTF_COUNTER_TABLE_PAR_ERRf,
+        EGR_VINTF_COUNTER_TABLEm, NULL,
+        EGR_EDATABUF_PARITY_CONTROLr, VINTFCTR_PAR_ENf,
+        EGR_VINTF_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_VINTF_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_SERVICE_COUNTER_TABLE_PAR_ERRf,
+        EGR_SERVICE_COUNTER_TABLE_PAR_ERRf,
+        EGR_SERVICE_COUNTER_TABLEm, NULL,
+        EGR_EDATABUF_PARITY_CONTROLr, SVCCTR_PAR_ENf,
+        EGR_SERVICE_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        EGR_SERVICE_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_EFP_METER_TABLE_PAR_ERRf,
+        EGR_EFP_METER_TABLE_PAR_ERRf,
+        EFP_METER_TABLEm, NULL,
+        EFP_METER_PARITY_CONTROLr, PARITY_ENf,
+        EFP_METER_PARITY_STATUS_INTRr, NULL,
+        EFP_METER_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_EFP_POLICY_TABLE_PAR_ERRf,
+        EGR_EFP_POLICY_TABLE_PAR_ERRf,
+        EFP_POLICY_TABLEm, NULL,
+        EFP_POLICY_PARITY_CONTROLr, PARITY_ENf,
+        EFP_POLICY_PARITY_STATUS_INTRr, NULL,
+        EFP_POLICY_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_EFP_PW_INIT_COUNTERS_PAR_ERRf,
+        EGR_EFP_PW_INIT_COUNTERS_PAR_ERRf,
+        EGR_PW_INIT_COUNTERSm, NULL,
+        EGR_PW_INIT_COUNTERS_PARITY_CONTROLr, PARITY_ENf,
+        EGR_PW_INIT_COUNTERS_PARITY_STATUS_INTRr, NULL,
+        EGR_PW_INIT_COUNTERS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip0_parity_info[] = {
+    /* IP0_INTR_STATUS.PPA_CMD_COMPLETE */
+    /* IP0_INTR_STATUS.MEM_RESET_COMPLETE */
+    /* IP0_INTR_STATUS.AGE_CMD_COMPLETE */
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        LMEP_PAR_ERRf,
+        LMEP_PAR_ERRf,
+        LMEPm, NULL,
+        LMEP_PARITY_CONTROLr, PARITY_ENf,
+        LMEP_PARITY_STATUS_INTRr, NULL,
+        LMEP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        IARB_PKT_ERRf,
+        IARB_PKT_ERRf,
+        INVALIDm, "IARB_PKT_BUF",
+        IARB_PKT_ECC_CONTROLr, ECC_ENf,
+        IARB_PKT_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        IARB_HDR_ERRf,
+        IARB_HDR_ERRf,
+        INVALIDm, "IARB_PKT_HDR",
+        IARB_HDR_ECC_CONTROLr, ECC_ENf,
+        IARB_HDR_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        IARB_PIPE_X_LERAN_FIFO_ECC_ERRf,
+        IARB_PIPE_X_LERAN_FIFO_ECC_ERRf,
+        INVALIDm, "IARB_LERAN_FIFO_PIPE_X",
+        IARB_LEARN_FIFO_ECC_CONTROLr, ECC_ENf,
+        IARB_PIPE_X_LERAN_FIFO_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        IARB_PIPE_Y_LERAN_FIFO_ECC_ERRf,
+        IARB_PIPE_Y_LERAN_FIFO_ECC_ERRf,
+        INVALIDm, "IARB_LERAN_FIFO_PIPE_Y",
+        IARB_LEARN_FIFO_ECC_CONTROLr, ECC_ENf,
+        IARB_PIPE_Y_LERAN_FIFO_ECC_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip1_parity_info[] = {
+    { _SOC_PARITY_TYPE_HASH, NULL, 0,
+        VXLT_PAR_ERRf,
+        VXLT_PAR_ERRf,
+        VLAN_XLATEm, NULL,
+        VLAN_XLATE_PARITY_CONTROLr, PARITY_ENf,
+        INVALIDr, _soc_katana_vlan_xlate_intr_reg,
+        INVALIDr, _soc_katana_vlan_xlate_nack_reg },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VFP_POLICY_PAR_ERRf,
+        VFP_POLICY_PAR_ERRf,
+        VFP_POLICY_TABLEm, NULL,
+        VFP_POLICY_PARITY_CONTROLr, PARITY_ENf,
+        VFP_POLICY_PARITY_STATUS_INTRr, NULL,
+        VFP_POLICY_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_PROT_PAR_ERRf,
+        VLAN_PROT_PAR_ERRf,
+        VLAN_PROTOCOL_DATAm, NULL,
+        VLAN_PROT_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_PROT_PARITY_STATUS_INTRr, NULL,
+        VLAN_PROT_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_SUBNET_PAR_ERRf,
+        VLAN_SUBNET_PAR_ERRf,
+        VLAN_SUBNET_DATA_ONLYm, NULL,
+        VLAN_SUBNET_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_SUBNET_PARITY_STATUS_INTRr, NULL,
+        VLAN_SUBNET_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        CPU_TS_POLICY_PAR_ERRf,
+        CPU_TS_POLICY_PAR_ERRf,
+        CPU_TS_MAPm, NULL,
+        CPU_TS_PARITY_CONTROLr, PARITY_ENf,
+        CPU_TS_PARITY_STATUS_INTRr, NULL,
+        CPU_TS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_RANGE_PAR_ERRf,
+        VLAN_RANGE_PAR_ERRf,
+        ING_VLAN_RANGEm, NULL,
+        VLAN_RANGE_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_RANGE_PARITY_STATUS_INTRr, NULL,
+        VLAN_RANGE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MOD_MAP_PAR_ERRf,
+        MOD_MAP_PAR_ERRf,
+        ING_MOD_MAP_TABLEm, NULL,
+        MOD_MAP_PARITY_CONTROLr, PARITY_ENf,
+        MOD_MAP_PARITY_STATUS_INTRr, NULL,
+        MOD_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        FP_UDF_PAR_ERRf,
+        FP_UDF_PAR_ERRf,
+        FP_UDF_OFFSETm, NULL,
+        FP_UDF_PARITY_CONTROLr, PARITY_ENf,
+        FP_UDF_PARITY_STATUS_INTRr, NULL,
+        FP_UDF_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_TUNNEL_PAR_ERRf,
+        L3_TUNNEL_PAR_ERRf,
+        L3_TUNNELm, NULL,
+        L3_TUNNEL_PARITY_CONTROLr, PARITY_ENf,
+        L3_TUNNEL_PARITY_STATUS_INTRr, NULL,
+        L3_TUNNEL_PARITY_STATUS_NACKr, NULL },
+    /* IP1_INTR_STATUS.WLAN_SVP_PAR_ERR */
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        SRC_TRUNK_PAR_ERRf,
+        SRC_TRUNK_PAR_ERRf,
+        SOURCE_TRUNK_MAP_TABLEm, NULL,
+        SRC_TRUNK_ECC_CONTROLr, ECC_ENf,
+        SRC_TRUNK_ECC_STATUS_INTRr, NULL,
+        SRC_TRUNK_ECC_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        LPORT_PAR_ERRf,
+        LPORT_PAR_ERRf,
+        LPORT_TABm, NULL,
+        LPORT_ECC_CONTROLr, ECC_ENf,
+        LPORT_ECC_STATUS_INTRr, NULL,
+        LPORT_ECC_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_HASH, NULL, 0,
+        MPLS_ENTRY_PAR_ERRf,
+        MPLS_ENTRY_PAR_ERRf,
+        MPLS_ENTRYm, NULL,
+        MPLS_ENTRY_PARITY_CONTROLr, PARITY_ENf,
+        INVALIDr, _soc_katana_mpls_entry_intr_reg,
+        INVALIDr, _soc_katana_mpls_entry_nack_reg },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        PORT_TABLE_PAR_ERRf,
+        PORT_TABLE_PAR_ERRf,
+        PORT_TABm, NULL,
+        PORT_TABLE_ECC_CONTROLr, ECC_ENf,
+        PORT_TABLE_ECC_STATUS_INTRr, NULL,
+        PORT_TABLE_ECC_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SYS_CONFIG_PAR_ERRf,
+        SYS_CONFIG_PAR_ERRf,
+        SYSTEM_CONFIG_TABLEm, NULL,
+        SYSTEM_CONFIG_PARITY_CONTROLr, PARITY_ENf,
+        SYSTEM_CONFIG_PARITY_STATUS_INTRr, NULL,
+        SYSTEM_CONFIG_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SYSTEM_CONFIG_MODVIEW_PAR_ERRf,
+        SYSTEM_CONFIG_MODVIEW_PAR_ERRf,
+        SYSTEM_CONFIG_TABLE_MODBASEm, NULL,
+        SYSTEM_CONFIG_MODVIEW_PARITY_CONTROLr, PARITY_ENf,
+        SYSTEM_CONFIG_MODVIEW_PARITY_STATUS_INTRr, NULL,
+        SYSTEM_CONFIG_MODVIEW_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SOURCE_TRUNK_MAP_MODVIEW_PAR_ERRf,
+        SOURCE_TRUNK_MAP_MODVIEW_PAR_ERRf,
+        SOURCE_TRUNK_MAP_MODBASEm, NULL,
+        SOURCE_TRUNK_MAP_MODVIEW_PARITY_CONTROLr, PARITY_ENf,
+        SOURCE_TRUNK_MAP_MODVIEW_PARITY_STATUS_INTRr, NULL,
+        SOURCE_TRUNK_MAP_MODVIEW_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip2_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        NHOP_PAR_ERRf,
+        NHOP_PAR_ERRf,
+        INITIAL_ING_L3_NEXT_HOPm, NULL,
+        INITIAL_ING_L3_NEXT_HOP_PARITY_CONTROLr, PARITY_ENf,
+        INITIAL_ING_L3_NEXT_HOP_PARITY_STATUS_INTRr, NULL,
+        INITIAL_ING_L3_NEXT_HOP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ECMP_GRP_PAR_ERRf,
+        ECMP_GRP_PAR_ERRf,
+        INITIAL_L3_ECMP_GROUPm, NULL,
+        INITIAL_L3_ECMP_GROUP_PARITY_CONTROLr, PARITY_ENf,
+        INITIAL_L3_ECMP_GROUP_PARITY_STATUS_INTRr, NULL,
+        INITIAL_L3_ECMP_GROUP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_ECMP_PAR_ERRf,
+        L3_ECMP_PAR_ERRf,
+        INITIAL_L3_ECMPm, NULL,
+        INITIAL_L3_ECMP_PARITY_CONTROLr, PARITY_ENf,
+        INITIAL_L3_ECMP_PARITY_STATUS_INTRr, NULL,
+        INITIAL_L3_ECMP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_DVP_PAR_ERRf,
+        ING_DVP_PAR_ERRf,
+        ING_DVP_TABLEm, NULL,
+        ING_DVP_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        ING_DVP_TABLE_PARITY_STATUS_INTRr, NULL,
+        ING_DVP_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        PROT_NHI_PAR_ERRf,
+        PROT_NHI_PAR_ERRf,
+        INITIAL_PROT_NHI_TABLEm, NULL,
+        INITIAL_PROT_NHI_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        INITIAL_PROT_NHI_TABLE_PARITY_STATUS_INTRr, NULL,
+        INITIAL_PROT_NHI_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        PORT_CBL_PAR_ERRf,
+        PORT_CBL_PAR_ERRf,
+        PORT_CBL_TABLEm, NULL,
+        PORT_CBL_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        PORT_CBL_TABLE_PARITY_STATUS_INTRr, NULL,
+        PORT_CBL_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        PORT_CBL_MODBASE_PAR_ERRf,
+        PORT_CBL_MODBASE_PAR_ERRf,
+        PORT_CBL_TABLE_MODBASEm, NULL,
+        PORT_CBL_TABLE_MODBASE_PARITY_CONTROLr, PARITY_ENf,
+        PORT_CBL_TABLE_MODBASE_PARITY_STATUS_INTRr, NULL,
+        PORT_CBL_TABLE_MODBASE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_IPMC_1_PAR_ERRf,
+        L3_IPMC_1_PAR_ERRf,
+        L3_IPMC_1m, NULL,
+        L3_IPMC_1_PARITY_CONTROLr, PARITY_ENf,
+        L3_IPMC_1_PARITY_STATUS_INTRr, NULL,
+        L3_IPMC_1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MA_INDEX_PAR_ERRf,
+        MA_INDEX_PAR_ERRf,
+        MA_INDEXm, NULL,
+        MA_INDEX_PARITY_CONTROLr, PARITY_ENf,
+        MA_INDEX_PARITY_STATUS_INTRr, NULL,
+        MA_INDEX_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        RMEP_PAR_ERRf,
+        RMEP_PAR_ERRf,
+        RMEPm, NULL,
+        RMEP_PARITY_CONTROLr, PARITY_ENf,
+        RMEP_PARITY_STATUS_INTRr, NULL,
+        RMEP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MAID_REDUCTION_PAR_ERRf,
+        MAID_REDUCTION_PAR_ERRf,
+        MAID_REDUCTIONm, NULL,
+        MAID_REDUCTION_PARITY_CONTROLr, PARITY_ENf,
+        MAID_REDUCTION_PARITY_STATUS_INTRr, NULL,
+        MAID_REDUCTION_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MA_STATE_PAR_ERRf,
+        MA_STATE_PAR_ERRf,
+        MA_STATEm, NULL,
+        MA_STATE_PARITY_CONTROLr, PARITY_ENf,
+        MA_STATE_PARITY_STATUS_INTRr, NULL,
+        MA_STATE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_PAR_ERRf,
+        VLAN_PAR_ERRf,
+        VLAN_TABm, NULL,
+        VLAN_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_PARITY_STATUS_INTRr, NULL,
+        VLAN_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SVP_PAR_ERRf,
+        SVP_PAR_ERRf,
+        SOURCE_VPm, NULL,
+        SOURCE_VP_PARITY_CONTROLr, PARITY_ENf,
+        SOURCE_VP_PARITY_STATUS_INTRr, NULL,
+        SOURCE_VP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_IIF_PAR_ERRf,
+        L3_IIF_PAR_ERRf,
+        L3_IIFm, NULL,
+        L3_IIF_PARITY_CONTROLr, PARITY_ENf,
+        L3_IIF_PARITY_STATUS_INTRr, NULL,
+        L3_IIF_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VFI_INTRf,
+        VFI_INTRf,
+        VFIm, NULL,
+        VFI_PARITY_CONTROLr, PARITY_ENf,
+        VFI_PARITY_STATUS_INTRr, NULL,
+        VFI_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_MPLS_INTRf,
+        VLAN_MPLS_INTRf,
+        VLAN_MPLSm, NULL,
+        VLAN_MPLS_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_MPLS_PARITY_STATUS_INTRr, NULL,
+        VLAN_MPLS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_STG_INTRf,
+        VLAN_STG_INTRf,
+        STG_TABm, NULL,
+        VLAN_STG_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_STG_PARITY_STATUS_INTRr, NULL,
+        VLAN_STG_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VRF_INTRf,
+        VRF_INTRf,
+        VRFm, NULL,
+        VRF_PARITY_CONTROLr, PARITY_ENf,
+        VRF_PARITY_STATUS_INTRr, NULL,
+        VRF_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VFI_1_INTRf,
+        VFI_1_INTRf,
+        VFI_1m, NULL,
+        VFI_1_PARITY_CONTROLr, PARITY_ENf,
+        VFI_1_PARITY_STATUS_INTRr, NULL,
+        VFI_1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_HASH, NULL, 0,
+        L3_ENTRY_PAR_ERRf,
+        L3_ENTRY_PAR_ERRf,
+        L3_ENTRY_IPV6_UNICASTm, NULL,
+        L3_ENTRY_PARITY_CONTROLr, PARITY_ENf,
+        INVALIDr, _soc_katana_l3_entry_ipv6_unicast_intr_reg,
+        INVALIDr, _soc_katana_l3_entry_ipv6_unicast_nack_reg },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_DEFIP_DATA_PAR_ERRf,
+        L3_DEFIP_DATA_PAR_ERRf,
+        L3_DEFIPm, NULL,
+        L3_DEFIP_DATA_PARITY_CONTROLr, PARITY_ENf,
+        L3_DEFIP_DATA_PARITY_STATUS_INTRr, NULL,
+        L3_DEFIP_DATA_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_DEFIP_128_DATA_PAR_ERRf,
+        L3_DEFIP_128_DATA_PAR_ERRf,
+        L3_DEFIP_128_DATA_ONLYm, NULL,
+        L3_DEFIP_128_DATA_PARITY_CONTROLr, PARITY_ENf,
+        L3_DEFIP_128_DATA_PARITY_STATUS_INTRr, NULL,
+        L3_DEFIP_128_DATA_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TTL_FN_PAR_ERRf,
+        TTL_FN_PAR_ERRf,
+        TTL_FNm, NULL,
+        TTL_FN_PARITY_CONTROLr, PARITY_ENf,
+        TTL_FN_PARITY_STATUS_INTRr, NULL,
+        TTL_FN_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TOS_FN_PAR_ERRf,
+        TOS_FN_PAR_ERRf,
+        TOS_FNm, NULL,
+        TOS_FN_PARITY_CONTROLr, PARITY_ENf,
+        TOS_FN_PARITY_STATUS_INTRr, NULL,
+        TOS_FN_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_PRI_CNG_MAP_PAR_ERRf,
+        ING_PRI_CNG_MAP_PAR_ERRf,
+        ING_PRI_CNG_MAPm, NULL,
+        ING_PRI_CNG_MAP_PARITY_CONTROLr, PARITY_ENf,
+        ING_PRI_CNG_MAP_PARITY_STATUS_INTRr, NULL,
+        ING_PRI_CNG_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_UNTAGGED_PHB_PAR_ERRf,
+        ING_UNTAGGED_PHB_PAR_ERRf,
+        ING_UNTAGGED_PHBm, NULL,
+        ING_UNTAGGED_PHB_PARITY_CONTROLr, PARITY_ENf,
+        ING_UNTAGGED_PHB_PARITY_STATUS_INTRr, NULL,
+        ING_UNTAGGED_PHB_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        DSCP_TABLE_PAR_ERRf,
+        DSCP_TABLE_PAR_ERRf,
+        DSCP_TABLEm, NULL,
+        DSCP_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        DSCP_TABLE_PARITY_STATUS_INTRr, NULL,
+        DSCP_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        FP_FIELD_SEL_PAR_ERRf,
+        FP_FIELD_SEL_PAR_ERRf,
+        FP_PORT_FIELD_SELm, NULL,
+        FP_FIELD_SEL_PARITY_CONTROLr, PARITY_ENf,
+        FP_FIELD_SEL_PARITY_STATUS_INTRr, NULL,
+        FP_FIELD_SEL_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip2_2_parity_info[] = {
+    /* IP2_INTR_STATUS_2.SOME_RDI_DEFECT_INTR */
+    /* IP2_INTR_STATUS_2.SOME_RMEP_CCM_DEFECT_INTR */
+    /* IP2_INTR_STATUS_2.ERROR_CCM_DEFECT_INTR */
+    /* IP2_INTR_STATUS_2.ANY_RMEP_TLV_PORT_DOWN_INTR */
+    /* IP2_INTR_STATUS_2.ANY_RMEP_TLV_PORT_UP_INTR */
+    /* IP2_INTR_STATUS_2.ANY_RMEP_TLV_INTERFACE_DOWN_INTR */
+    /* IP2_INTR_STATUS_2.ANY_RMEP_TLV_INTERFACE_UP_INTR */
+    /* IP2_INTR_STATUS_2.XCON_CCM_DEFECT_INTR */
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip3_parity_info[] = {
+    { _SOC_PARITY_TYPE_HASH, NULL, 0,
+        L2_ENTRY_PAR_ERRf,
+        L2_ENTRY_PAR_ERRf,
+        L2_ENTRY_ONLYm, NULL,
+        L2_ENTRY_PARITY_CONTROLr, PARITY_ENf,
+        INVALIDr, _soc_katana_l2_entry_only_intr_reg,
+        INVALIDr, _soc_katana_l2_entry_only_nack_reg },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L2_MOD_FIFO_INTRf,
+        L2_MOD_FIFO_INTRf,
+        L2_MOD_FIFOm, NULL,
+        L2_MOD_FIFO_PARITY_CONTROLr, PARITY_ENf,
+        L2_MOD_FIFO_PARITY_STATUS_INTRr, NULL,
+        L2_MOD_FIFO_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L2_USER_ENTRY_DATA_INTRf,
+        L2_USER_ENTRY_DATA_INTRf,
+        L2_USER_ENTRYm, NULL,
+        L2_USER_ENTRY_DATA_PARITY_CONTROLr, PARITY_ENf,
+        L2_USER_ENTRY_DATA_PARITY_STATUS_INTRr, NULL,
+        L2_USER_ENTRY_DATA_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip4_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_POLICY_PAR_ERRf,
+        IFP_POLICY_PAR_ERRf,
+        FP_POLICY_TABLEm, NULL,
+        IFP_POLICY_PARITY_CONTROLr, PARITY_ENf,
+        IFP_POLICY_PARITY_STATUS_INTRr, NULL,
+        IFP_POLICY_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_STORM_CONTROL_PAR_ERRf,
+        IFP_STORM_CONTROL_PAR_ERRf,
+        FP_STORM_CONTROL_METERSm, NULL,
+        IFP_STORM_CONTROL_PARITY_CONTROLr, PARITY_ENf,
+        IFP_STORM_CONTROL_PARITY_STATUS_INTRr, NULL,
+        IFP_STORM_CONTROL_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_COUNTER_PAR_ERRf,
+        IFP_COUNTER_PAR_ERRf,
+        FP_COUNTER_TABLEm, NULL,
+        IFP_COUNTER_PARITY_CONTROLr, PARITY_ENf,
+        IFP_COUNTER_PARITY_STATUS_INTRr, NULL,
+        IFP_COUNTER_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_METER_PAR_ERRf,
+        IFP_METER_PAR_ERRf,
+        FP_METER_TABLEm, NULL,
+        IFP_METER_PARITY_CONTROLr, PARITY_ENf,
+        IFP_METER_PARITY_STATUS_INTRr, NULL,
+        IFP_METER_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_ING_DVP_2_PAR_ERRf,
+        IFP_ING_DVP_2_PAR_ERRf,
+        ING_DVP_2_TABLEm, NULL,
+        IFP_ING_DVP_2_PARITY_CONTROLr, PARITY_ENf,
+        IFP_ING_DVP_2_PARITY_STATUS_INTRr, NULL,
+        IFP_ING_DVP_2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_METER_MUX_DATA_STAGING_PAR_ERRf,
+        IFP_METER_MUX_DATA_STAGING_PAR_ERRf,
+        INVALIDm, "IFP_METER_MUX_DATA_STAGING",
+        IFP_METER_MUX_DATA_STAGING_PARITY_CONTROLr, PARITY_ENf,
+        IFP_METER_MUX_DATA_STAGING_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IFP_COUNTER_MUX_DATA_STAGING_PAR_ERRf,
+        IFP_COUNTER_MUX_DATA_STAGING_PAR_ERRf,
+        INVALIDm, "IFP_COUNTER_MUX_DATA_STAGING",
+        IFP_COUNTER_MUX_DATA_STAGING_PARITY_CONTROLr, PARITY_ENf,
+        IFP_COUNTER_MUX_DATA_STAGING_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_EGR_MASK_MODBASE_PAR_ERRf,
+        IRSEL2_EGR_MASK_MODBASE_PAR_ERRf,
+        EGR_MASK_MODBASEm, NULL,
+        EGR_MASK_MODBASE_PARITY_CONTROLr, PARITY_ENf,
+        EGR_MASK_MODBASE_PARITY_STATUS_INTRr, NULL,
+        EGR_MASK_MODBASE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_ICONTROL_OPCODE_BITMAP_PAR_ERRf,
+        IRSEL2_ICONTROL_OPCODE_BITMAP_PAR_ERRf,
+        ICONTROL_OPCODE_BITMAPm, NULL,
+        ICONTROL_OPCODE_BITMAP_PARITY_CONTROLr, PARITY_ENf,
+        ICONTROL_OPCODE_BITMAP_PARITY_STATUS_INTRr, NULL,
+        ICONTROL_OPCODE_BITMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_IFP_REDIRECTION_PROFILE_PAR_ERRf,
+        IRSEL2_IFP_REDIRECTION_PROFILE_PAR_ERRf,
+        IFP_REDIRECTION_PROFILEm, NULL,
+        IFP_REDIRECTION_PROFILE_PARITY_CONTROLr, PARITY_ENf,
+        IFP_REDIRECTION_PROFILE_PARITY_STATUS_INTRr, NULL,
+        IFP_REDIRECTION_PROFILE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_ING_L3_NEXT_HOP_PAR_ERRf,
+        IRSEL2_ING_L3_NEXT_HOP_PAR_ERRf,
+        ING_L3_NEXT_HOPm, NULL,
+        ING_L3_NEXT_HOP_PARITY_CONTROLr, PARITY_ENf,
+        ING_L3_NEXT_HOP_PARITY_STATUS_INTRr, NULL,
+        ING_L3_NEXT_HOP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_L2MC_PAR_ERRf,
+        IRSEL2_L2MC_PAR_ERRf,
+        L2MCm, NULL,
+        L2MC_PARITY_CONTROLr, PARITY_ENf,
+        L2MC_PARITY_STATUS_INTRr, NULL,
+        L2MC_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_L3_ECMP_PAR_ERRf,
+        IRSEL2_L3_ECMP_PAR_ERRf,
+        L3_ECMPm, NULL,
+        L3_ECMP_PARITY_CONTROLr, PARITY_ENf,
+        L3_ECMP_PARITY_STATUS_INTRr, NULL,
+        L3_ECMP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_L3_IPMC_PAR_ERRf,
+        IRSEL2_L3_IPMC_PAR_ERRf,
+        L3_IPMCm, NULL,
+        L3_IPMC_PARITY_CONTROLr, PARITY_ENf,
+        L3_IPMC_PARITY_STATUS_INTRr, NULL,
+        L3_IPMC_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_L3_IPMC_REMAP_PAR_ERRf,
+        IRSEL2_L3_IPMC_REMAP_PAR_ERRf,
+        L3_IPMC_REMAPm, NULL,
+        L3_IPMC_REMAP_PARITY_CONTROLr, PARITY_ENf,
+        L3_IPMC_REMAP_PARITY_STATUS_INTRr, NULL,
+        L3_IPMC_REMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IRSEL2_TRUNK_GROUP_PAR_ERRf,
+        IRSEL2_TRUNK_GROUP_PAR_ERRf,
+        TRUNK_GROUPm, NULL,
+        TRUNK_GROUP_PARITY_CONTROLr, PARITY_ENf,
+        TRUNK_GROUP_PARITY_STATUS_INTRr, NULL,
+        TRUNK_GROUP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip5_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VOQ_COS_MAP_PAR_ERRf,
+        VOQ_COS_MAP_PAR_ERRf,
+        VOQ_COS_MAPm, NULL,
+        VOQ_COS_MAP_PARITY_CONTROLr, PARITY_ENf,
+        VOQ_COS_MAP_PARITY_STATUS_INTRr, NULL,
+        VOQ_COS_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        DLB_HGT_FLOWSET_PORT_PAR_ERRf,
+        DLB_HGT_FLOWSET_PORT_PAR_ERRf,
+        DLB_HGT_FLOWSET_PORTm, NULL,
+        DLB_HGT_FLOWSET_PORT_PARITY_CONTROLr, PARITY_ENf,
+        DLB_HGT_FLOWSET_PORT_PARITY_STATUS_INTRr, NULL,
+        DLB_HGT_FLOWSET_PORT_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAR_ERRf,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAR_ERRf,
+        DLB_HGT_FLOWSET_TIMESTAMPm, NULL,
+        DLB_HGT_FLOWSET_TIMESTAMP_PARITY_CONTROLr, PARITY_ENf,
+        DLB_HGT_FLOWSET_TIMESTAMP_PARITY_STATUS_INTRr, NULL,
+        DLB_HGT_FLOWSET_TIMESTAMP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGE_PAR_ERRf,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGE_PAR_ERRf,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGEm, NULL,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGE_PARITY_CONTROLr, PARITY_ENf,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGE_PARITY_STATUS_INTRr, NULL,
+        DLB_HGT_FLOWSET_TIMESTAMP_PAGE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip5_1_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EGR_MASK_PAR_ERRf,
+        EGR_MASK_PAR_ERRf,
+        EGR_MASKm, NULL,
+        EGR_MASK_PARITY_CONTROLr, PARITY_ENf,
+        EGR_MASK_PARITY_STATUS_INTRr, NULL,
+        EGR_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TRUNK_BITMAP_PAR_ERRf,
+        TRUNK_BITMAP_PAR_ERRf,
+        TRUNK_BITMAPm, NULL,
+        TRUNK_BITMAP_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        TRUNK_BITMAP_TABLE_PARITY_STATUS_INTRr, NULL,
+        TRUNK_BITMAP_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        NONUCAST_TRUNK_BLOCK_MASK_PAR_ERRf,
+        NONUCAST_TRUNK_BLOCK_MASK_PAR_ERRf,
+        NONUCAST_TRUNK_BLOCK_MASKm, NULL,
+        NONUCAST_TRUNK_BLOCK_MASK_PARITY_CONTROLr, PARITY_ENf,
+        NONUCAST_TRUNK_BLOCK_MASK_PARITY_STATUS_INTRr, NULL,
+        NONUCAST_TRUNK_BLOCK_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MAC_BLOCK_TABLE_PAR_ERRf,
+        MAC_BLOCK_TABLE_PAR_ERRf,
+        MAC_BLOCKm, NULL,
+        MAC_BLOCK_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        MAC_BLOCK_TABLE_PARITY_STATUS_INTRr, NULL,
+        MAC_BLOCK_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MODPORT_MAP_SW_PAR_ERRf,
+        MODPORT_MAP_SW_PAR_ERRf,
+        MODPORT_MAP_SWm, NULL,
+        MODPORT_MAP_SW_PARITY_CONTROLr, PARITY_ENf,
+        MODPORT_MAP_SW_PARITY_STATUS_INTRr, NULL,
+        MODPORT_MAP_SW_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MODPORT_MAP_M0_PAR_ERRf,
+        MODPORT_MAP_M0_PAR_ERRf,
+        MODPORT_MAP_M0m, NULL,
+        MODPORT_MAP_MIRROR_PARITY_CONTROLr, PARITY_ENf,
+        MODPORT_MAP_M0_PARITY_STATUS_INTRr, NULL,
+        MODPORT_MAP_M0_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MODPORT_MAP_M1_PAR_ERRf,
+        MODPORT_MAP_M1_PAR_ERRf,
+        MODPORT_MAP_M1m, NULL,
+        MODPORT_MAP_MIRROR_PARITY_CONTROLr, PARITY_ENf,
+        MODPORT_MAP_M1_PARITY_STATUS_INTRr, NULL,
+        MODPORT_MAP_M1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MODPORT_MAP_M2_PAR_ERRf,
+        MODPORT_MAP_M2_PAR_ERRf,
+        MODPORT_MAP_M2m, NULL,
+        MODPORT_MAP_MIRROR_PARITY_CONTROLr, PARITY_ENf,
+        MODPORT_MAP_M2_PARITY_STATUS_INTRr, NULL,
+        MODPORT_MAP_M2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        MODPORT_MAP_M3_PAR_ERRf,
+        MODPORT_MAP_M3_PAR_ERRf,
+        MODPORT_MAP_M3m, NULL,
+        MODPORT_MAP_MIRROR_PARITY_CONTROLr, PARITY_ENf,
+        MODPORT_MAP_M3_PARITY_STATUS_INTRr, NULL,
+        MODPORT_MAP_M3_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SRC_MODID_INGRESS_BLOCK_PAR_ERRf,
+        SRC_MODID_INGRESS_BLOCK_PAR_ERRf,
+        SRC_MODID_INGRESS_BLOCKm, NULL,
+        SRC_MODID_INGRESS_BLOCK_PARITY_CONTROLr, PARITY_ENf,
+        SRC_MODID_INGRESS_BLOCK_PARITY_STATUS_INTRr, NULL,
+        SRC_MODID_INGRESS_BLOCK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SRC_MODID_EGRESS_PAR_ERRf,
+        SRC_MODID_EGRESS_PAR_ERRf,
+        SRC_MODID_EGRESSm, NULL,
+        SRC_MODID_EGRESS_PARITY_CONTROLr, PARITY_ENf,
+        SRC_MODID_EGRESS_PARITY_STATUS_INTRr, NULL,
+        SRC_MODID_EGRESS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ALTERNATE_EMIRROR_BITMAP_PAR_ERRf,
+        ALTERNATE_EMIRROR_BITMAP_PAR_ERRf,
+        ALTERNATE_EMIRROR_BITMAPm, NULL,
+        ALTERNATE_EMIRROR_BITMAP_PARITY_CONTROLr, PARITY_ENf,
+        ALTERNATE_EMIRROR_BITMAP_PARITY_STATUS_INTRr, NULL,
+        ALTERNATE_EMIRROR_BITMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        PORT_LAG_FAILOVER_SET_PAR_ERRf,
+        PORT_LAG_FAILOVER_SET_PAR_ERRf,
+        PORT_LAG_FAILOVER_SETm, NULL,
+        PORT_LAG_FAILOVER_SET_PARITY_CONTROLr, PARITY_ENf,
+        PORT_LAG_FAILOVER_SET_PARITY_STATUS_INTRr, NULL,
+        PORT_LAG_FAILOVER_SET_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_PROFILE_2_PAR_ERRf,
+        VLAN_PROFILE_2_PAR_ERRf,
+        VLAN_PROFILE_2m, NULL,
+        VLAN_PROFILE_2_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_PROFILE_2_PARITY_STATUS_INTRr, NULL,
+        VLAN_PROFILE_2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        L3_MTU_VALUES_PAR_ERRf,
+        L3_MTU_VALUES_PAR_ERRf,
+        L3_MTU_VALUESm, NULL,
+        L3_MTU_VALUES_PARITY_CONTROLr, PARITY_ENf,
+        L3_MTU_VALUES_PARITY_STATUS_INTRr, NULL,
+        L3_MTU_VALUES_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_PW_TERM_SEQ_NUM_PAR_ERRf,
+        ING_PW_TERM_SEQ_NUM_PAR_ERRf,
+        ING_PW_TERM_SEQ_NUMm, NULL,
+        ING_PW_TERM_SEQ_NUM_PARITY_CONTROLr, PARITY_ENf,
+        ING_PW_TERM_SEQ_NUM_PARITY_STATUS_INTRr, NULL,
+        ING_PW_TERM_SEQ_NUM_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_SERVICE_COUNTER_TABLE_PAR_ERRf,
+        ING_SERVICE_COUNTER_TABLE_PAR_ERRf,
+        ING_SERVICE_COUNTER_TABLEm, NULL,
+        ING_SERVICE_COUNTER_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        ING_SERVICE_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        ING_SERVICE_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_VINTF_COUNTER_TABLE_PAR_ERRf,
+        ING_VINTF_COUNTER_TABLE_PAR_ERRf,
+        ING_VINTF_COUNTER_TABLEm, NULL,
+        ING_VINTF_COUNTER_TABLE_PARITY_CONTROLr, PARITY_ENf,
+        ING_VINTF_COUNTER_TABLE_PARITY_STATUS_INTRr, NULL,
+        ING_VINTF_COUNTER_TABLE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        VLAN_COS_MAP_PAR_ERRf,
+        VLAN_COS_MAP_PAR_ERRf,
+        VLAN_COS_MAPm, NULL,
+        VLAN_COS_MAP_PARITY_CONTROLr, PARITY_ENf,
+        VLAN_COS_MAP_PARITY_STATUS_INTRr, NULL,
+        VLAN_COS_MAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        E2E_HOL_STATUS_PAR_ERRf,
+        E2E_HOL_STATUS_PAR_ERRf,
+        E2E_HOL_STATUSm, NULL,
+        E2E_HOL_STATUS_PARITY_CONTROLr, PARITY_ENf,
+        E2E_HOL_STATUS_PARITY_STATUS_INTRr, NULL,
+        E2E_HOL_STATUS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        E2E_HOL_STATUS_1_PAR_ERRf,
+        E2E_HOL_STATUS_1_PAR_ERRf,
+        E2E_HOL_STATUS_1m, NULL,
+        E2E_HOL_STATUS_1_PARITY_CONTROLr, PARITY_ENf,
+        E2E_HOL_STATUS_1_PARITY_STATUS_INTRr, NULL,
+        E2E_HOL_STATUS_1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        UNKNOWN_UCAST_BLOCK_MASK_PAR_ERRf,
+        UNKNOWN_UCAST_BLOCK_MASK_PAR_ERRf,
+        UNKNOWN_UCAST_BLOCK_MASKm, NULL,
+        UNKNOWN_UCAST_BLOCK_MASK_PARITY_CONTROLr, PARITY_ENf,
+        UNKNOWN_UCAST_BLOCK_MASK_PARITY_STATUS_INTRr, NULL,
+        UNKNOWN_UCAST_BLOCK_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        UNKNOWN_MCAST_BLOCK_MASK_PAR_ERRf,
+        UNKNOWN_MCAST_BLOCK_MASK_PAR_ERRf,
+        UNKNOWN_MCAST_BLOCK_MASKm, NULL,
+        UNKNOWN_MCAST_BLOCK_MASK_PARITY_CONTROLr, PARITY_ENf,
+        UNKNOWN_MCAST_BLOCK_MASK_PARITY_STATUS_INTRr, NULL,
+        UNKNOWN_MCAST_BLOCK_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        BCAST_BLOCK_MASK_PAR_ERRf,
+        BCAST_BLOCK_MASK_PAR_ERRf,
+        BCAST_BLOCK_MASKm, NULL,
+        BCAST_BLOCK_MASK_PARITY_CONTROLr, PARITY_ENf,
+        BCAST_BLOCK_MASK_PARITY_STATUS_INTRr, NULL,
+        BCAST_BLOCK_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        KNOWN_MCAST_BLOCK_MASK_PAR_ERRf,
+        KNOWN_MCAST_BLOCK_MASK_PAR_ERRf,
+        KNOWN_MCAST_BLOCK_MASKm, NULL,
+        KNOWN_MCAST_BLOCK_MASK_PARITY_CONTROLr, PARITY_ENf,
+        KNOWN_MCAST_BLOCK_MASK_PARITY_STATUS_INTRr, NULL,
+        KNOWN_MCAST_BLOCK_MASK_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_EGRMSKBMAP_PAR_ERRf,
+        ING_EGRMSKBMAP_PAR_ERRf,
+        ING_EGRMSKBMAPm, NULL,
+        ING_EGRMSKBMAP_PARITY_CONTROLr, PARITY_ENf,
+        ING_EGRMSKBMAP_PARITY_STATUS_INTRr, NULL,
+        ING_EGRMSKBMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_PAR_ERRf,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_PAR_ERRf,
+        LOCAL_SW_DISABLE_DEFAULT_PBMm, NULL,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_PARITY_CONTROLr, PARITY_ENf,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_PARITY_STATUS_INTRr, NULL,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRR_PAR_ERRf,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRR_PAR_ERRf,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRRm, NULL,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRR_PARITY_CONTROLr, PARITY_ENf,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRR_PARITY_STATUS_INTRr, NULL,
+        LOCAL_SW_DISABLE_DEFAULT_PBM_MIRR_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        IMIRROR_BITMAP_PAR_ERRf,
+        IMIRROR_BITMAP_PAR_ERRf,
+        IMIRROR_BITMAPm, NULL,
+        IMIRROR_BITMAP_PARITY_CONTROLr, PARITY_ENf,
+        IMIRROR_BITMAP_PARITY_STATUS_INTRr, NULL,
+        IMIRROR_BITMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        UNKNOWN_HGI_BITMAP_PAR_ERRf,
+        UNKNOWN_HGI_BITMAP_PAR_ERRf,
+        UNKNOWN_HGI_BITMAPm, NULL,
+        UNKNOWN_HGI_BITMAP_PARITY_CONTROLr, PARITY_ENf,
+        UNKNOWN_HGI_BITMAP_PARITY_STATUS_INTRr, NULL,
+        UNKNOWN_HGI_BITMAP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TRUNK_MEMBER_PAR_ERRf,
+        TRUNK_MEMBER_PAR_ERRf,
+        TRUNK_MEMBERm, NULL,
+        TRUNK_MEMBER_PARITY_CONTROLr, PARITY_ENf,
+        TRUNK_MEMBER_PARITY_STATUS_INTRr, NULL,
+        TRUNK_MEMBER_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILE_PAR_ERRf,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILE_PAR_ERRf,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILEm, NULL,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILE_PARITY_CONTROLr, PARITY_ENf,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILE_PARITY_STATUS_INTRr, NULL,
+        ING_HIGIG_TRUNK_OVERRIDE_PROFILE_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_ip5_2_parity_info[] = {
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EMIRROR_CONTROL_PAR_ERRf,
+        EMIRROR_CONTROL_PAR_ERRf,
+        EMIRROR_CONTROLm, NULL,
+        EMIRROR_CONTROL_PARITY_CONTROLr, PARITY_ENf,
+        EMIRROR_CONTROL_PARITY_STATUS_INTRr, NULL,
+        EMIRROR_CONTROL_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EMIRROR_CONTROL1_PAR_ERRf,
+        EMIRROR_CONTROL1_PAR_ERRf,
+        EMIRROR_CONTROL1m, NULL,
+        EMIRROR_CONTROL1_PARITY_CONTROLr, PARITY_ENf,
+        EMIRROR_CONTROL1_PARITY_STATUS_INTRr, NULL,
+        EMIRROR_CONTROL1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EMIRROR_CONTROL2_PAR_ERRf,
+        EMIRROR_CONTROL2_PAR_ERRf,
+        EMIRROR_CONTROL2m, NULL,
+        EMIRROR_CONTROL2_PARITY_CONTROLr, PARITY_ENf,
+        EMIRROR_CONTROL2_PARITY_STATUS_INTRr, NULL,
+        EMIRROR_CONTROL2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        EMIRROR_CONTROL3_PAR_ERRf,
+        EMIRROR_CONTROL3_PAR_ERRf,
+        EMIRROR_CONTROL3m, NULL,
+        EMIRROR_CONTROL3_PARITY_CONTROLr, PARITY_ENf,
+        EMIRROR_CONTROL3_PARITY_STATUS_INTRr, NULL,
+        EMIRROR_CONTROL3_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SW2_EOP_BUFFER_A_PAR_ERRf,
+        SW2_EOP_BUFFER_A_PAR_ERRf,
+        INVALIDm, "SW2_EOP_BUFFER_A",
+        SW2_EOP_BUFFER_A_PARITY_CONTROLr, PARITY_ENf,
+        SW2_EOP_BUFFER_A_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SW2_EOP_BUFFER_B_PAR_ERRf,
+        SW2_EOP_BUFFER_B_PAR_ERRf,
+        INVALIDm, "SW2_EOP_BUFFER_B",
+        SW2_EOP_BUFFER_B_PARITY_CONTROLr, PARITY_ENf,
+        SW2_EOP_BUFFER_B_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        SW2_EOP_BUFFER_C_PAR_ERRf,
+        SW2_EOP_BUFFER_C_PAR_ERRf,
+        INVALIDm, "SW2_EOP_BUFFER_C",
+        SW2_EOP_BUFFER_C_PARITY_CONTROLr, PARITY_ENf,
+        SW2_EOP_BUFFER_C_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        IP_COUNTERS_PAR_ERRf,
+        IP_COUNTERS_PAR_ERRf,
+        INVALIDm, "Ingress Pipeline Counter",
+        IP_COUNTERS_PARITY_CONTROLr, PARITY_ENf,
+        IP_COUNTERS_PARITY_STATUS_INTRr, NULL,
+        IP_COUNTERS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        RDBGC_MEM_INST0_PAR_ERRf,
+        RDBGC_MEM_INST0_PAR_ERRf,
+        INVALIDm, "Ingress Pipeline Counter",
+        RDBGC_MEM_INST0_PARITY_CONTROLr, PARITY_ENf,
+        RDBGC_MEM_INST0_PARITY_STATUS_INTRr, NULL,
+        RDBGC_MEM_INST0_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        RDBGC_MEM_INST1_PAR_ERRf,
+        RDBGC_MEM_INST1_PAR_ERRf,
+        INVALIDm, "RX Debug Counter",
+        RDBGC_MEM_INST1_PARITY_CONTROLr, PARITY_ENf,
+        RDBGC_MEM_INST1_PARITY_STATUS_INTRr, NULL,
+        RDBGC_MEM_INST1_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        RDBGC_MEM_INST2_PAR_ERRf,
+        RDBGC_MEM_INST2_PAR_ERRf,
+        INVALIDm, "RX Debug Counter",
+        RDBGC_MEM_INST2_PARITY_CONTROLr, PARITY_ENf,
+        RDBGC_MEM_INST2_PARITY_STATUS_INTRr, NULL,
+        RDBGC_MEM_INST2_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_COUNTER, NULL, 0,
+        HG_COUNTERS_PAR_ERRf,
+        HG_COUNTERS_PAR_ERRf,
+        INVALIDm, "Ingress Pipeline HG Counter",
+        HG_COUNTERS_PARITY_CONTROLr, PARITY_ENf,
+        HG_COUNTERS_PARITY_STATUS_INTRr, NULL,
+        HG_COUNTERS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        NIV_ERROR_DROP_PAR_ERRf,
+        NIV_ERROR_DROP_PAR_ERRf,
+        INVALIDm, "ING_NIV_RX_FRAMES_ERROR_DROP",
+        NIV_ERROR_DROP_PARITY_CONTROLr, PARITY_ENf,
+        NIV_ERROR_DROP_PARITY_STATUS_INTRr, NULL,
+        NIV_ERROR_DROP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        NIV_FORWARDING_DROP_PAR_ERRf,
+        NIV_FORWARDING_DROP_PAR_ERRf,
+        INVALIDm, "ING_NIV_RX_FRAMES_FORWARDING_DROP",
+        NIV_FORWARDING_DROP_PARITY_CONTROLr, PARITY_ENf,
+        NIV_FORWARDING_DROP_PARITY_STATUS_INTRr, NULL,
+        NIV_FORWARDING_DROP_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        NIV_VLAN_TAGGED_PAR_ERRf,
+        NIV_VLAN_TAGGED_PAR_ERRf,
+        INVALIDm, "ING_NIV_RX_FRAMES_VLAN_TAGGED",
+        NIV_VLAN_TAGGED_PARITY_CONTROLr, PARITY_ENf,
+        NIV_VLAN_TAGGED_PARITY_STATUS_INTRr, NULL,
+        NIV_VLAN_TAGGED_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TRILL_RX_PKTS_PAR_ERRf,
+        TRILL_RX_PKTS_PAR_ERRf,
+        INVALIDm, "ING_TRILL_RX_PKTS",
+        TRILL_RX_PKTS_PARITY_CONTROLr, PARITY_ENf,
+        TRILL_RX_PKTS_PARITY_STATUS_INTRr, NULL,
+        TRILL_RX_PKTS_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED_PAR_ERRf,
+        TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED_PAR_ERRf,
+        INVALIDm, "ING_TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED",
+        TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED_PARITY_CONTROLr, PARITY_ENf,
+        TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED_PARITY_STATUS_INTRr, NULL,
+        TRILL_RX_ACCESS_PORT_TRILL_PKTS_DISCARDED_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED_PAR_ERRf,
+        TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED_PAR_ERRf,
+        INVALIDm, "ING_TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED",
+        TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED_PARITY_CONTROLr, PARITY_ENf,
+        TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED_PARITY_STATUS_INTRr, NULL,
+        TRILL_RX_NETWORK_PORT_NON_TRILL_PKTS_DISCARDED_PARITY_STATUS_NACKr, NULL },
+    { _SOC_PARITY_TYPE_PARITY, NULL, 0,
+        CPB_PAR_ERRf,
+        CPB_PAR_ERRf,
+        INVALIDm, "CPB",
+        CPB_PARITY_CONTROLr, PARITY_ENf,
+        CPB_PARITY_STATUS_INTRr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_pg5_parity_info[] = {
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 0,
+        XLP0_PERR_INTRf,
+        XLP0_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 0,
+        XLP0_PERR_INTRf,
+        XLP0_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 1,
+        XLP1_PERR_INTRf,
+        XLP1_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 1,
+        XLP1_PERR_INTRf,
+        XLP1_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 2,
+        XLP2_PERR_INTRf,
+        XLP2_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 2,
+        XLP2_PERR_INTRf,
+        XLP2_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 3,
+        XLP3_PERR_INTRf,
+        XLP3_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 3,
+        XLP3_PERR_INTRf,
+        XLP3_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 4,
+        XLP4_PERR_INTRf,
+        XLP4_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 4,
+        XLP4_PERR_INTRf,
+        XLP4_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        PG5_PERR_INTRf,
+        PG5_PERR_INTRf,
+        INVALIDm, "PG FIFO",
+        PORT_GROUP5_BOD_FIFO_ECC_ENABLEr, BOD_FIFO_ECC_ENABLEf,
+        INVALIDr, _soc_katana_pg5_fifo_intr_reg,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC _soc_katana_parity_info_t _soc_katana_pg4_parity_info[] = {
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 5,
+        XLP0_PERR_INTRf,
+        XLP0_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 5,
+        XLP0_PERR_INTRf,
+        XLP0_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 6,
+        XLP1_PERR_INTRf,
+        XLP1_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 6,
+        XLP1_PERR_INTRf,
+        XLP1_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 7,
+        XLP2_PERR_INTRf,
+        XLP2_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 7,
+        XLP2_PERR_INTRf,
+        XLP2_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport_parity_info, 8,
+        XLP3_PERR_INTRf,
+        XLP3_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_INTR_ENABLEr, INVALIDf, /* group enable */
+        XLPORT_INTR_STATUSr, NULL,     /* group status */
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_XLPORT, _soc_katana_xlport1_parity_info, 8,
+        XLP3_PERR_INTRf,
+        XLP3_PERR_INTRf,
+        INVALIDm, "XLPORT",
+        XLPORT_ECC_CONTROLr, INVALIDf, /* group enable */
+        INVALIDr, NULL,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_ECC, NULL, 0,
+        PG4_PERR_INTRf,
+        PG4_PERR_INTRf,
+        INVALIDm, "PG FIFO",
+        PORT_GROUP4_BOD_FIFO_ECC_ENABLEr, BOD_FIFO_ECC_ENABLEf,
+        INVALIDr, _soc_katana_pg4_fifo_intr_reg,
+        INVALIDr, NULL },
+    { _SOC_PARITY_TYPE_NONE } /* table terminator */
+};
+
+STATIC const
+_soc_katana_parity_route_block_t  _soc_katana_parity_route_blocks[] = {
+    { 0x00000001, /* MMU_TO_CMIC_MEMFAIL_INTR */
+        SOC_BLK_MMU, -1, MEM_FAIL_INT_ENr, MEM_FAIL_INT_STATr,
+        _soc_katana_mmu_parity_info },
+    { 0x00000002, /* X_EP1_TO_CMIC_PERR_INTR */
+        SOC_BLK_EPIPE, 0, EGR_INTR0_ENABLEr, EGR_INTR0_STATUSr,
+        _soc_katana_ep0_parity_info },
+    { 0x00000004, /* Y_EP1_TO_CMIC_PERR_INTR */
+        SOC_BLK_EPIPE, 1, EGR_INTR0_ENABLEr, EGR_INTR0_STATUSr,
+        _soc_katana_ep0_parity_info },
+    { 0x00000008, /* X_EP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_EPIPE, 0, EGR_INTR1_ENABLEr, EGR_INTR1_STATUSr,
+        _soc_katana_ep1_parity_info },
+    { 0x00000010, /* Y_EP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_EPIPE, 1, EGR_INTR1_ENABLEr, EGR_INTR1_STATUSr,
+        _soc_katana_ep1_parity_info },
+    { 0x00000020, /* X_IP0_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP0_INTR_ENABLEr, IP0_INTR_STATUSr,
+        _soc_katana_ip0_parity_info },
+    { 0x00000040, /* Y_IP0_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP0_INTR_ENABLEr, IP0_INTR_STATUSr,
+        _soc_katana_ip0_parity_info },
+    { 0x00000080, /* X_IP1_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP1_INTR_ENABLEr, IP1_INTR_STATUSr,
+        _soc_katana_ip1_parity_info },
+    { 0x00000100, /* Y_IP1_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP1_INTR_ENABLEr, IP1_INTR_STATUSr,
+        _soc_katana_ip1_parity_info },
+    { 0x00000200, /* X_IP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP2_INTR_ENABLEr, IP2_INTR_STATUSr,
+        _soc_katana_ip2_parity_info },
+    { 0x00000200, /* X_IP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP2_INTR_ENABLE_2r, IP2_INTR_STATUS_2r,
+        _soc_katana_ip2_2_parity_info },
+    { 0x00000400, /* Y_IP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP2_INTR_ENABLEr, IP2_INTR_STATUSr,
+        _soc_katana_ip2_parity_info },
+    { 0x00000400, /* Y_IP2_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP2_INTR_ENABLE_2r, IP2_INTR_STATUS_2r,
+        _soc_katana_ip2_2_parity_info },
+    { 0x00000800, /* X_IP3_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP3_INTR_ENABLEr, IP3_INTR_STATUSr,
+        _soc_katana_ip3_parity_info },
+    { 0x00001000, /* Y_IP3_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP3_INTR_ENABLEr, IP3_INTR_STATUSr,
+        _soc_katana_ip3_parity_info },
+    { 0x00002000, /* X_IP4_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP4_INTR_ENABLEr, IP4_INTR_STATUSr,
+        _soc_katana_ip4_parity_info },
+    { 0x00004000, /* Y_IP4_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP4_INTR_ENABLEr, IP4_INTR_STATUSr,
+        _soc_katana_ip4_parity_info },
+    { 0x00008000, /* X_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP5_INTR_ENABLEr, IP5_INTR_STATUSr,
+        _soc_katana_ip5_parity_info },
+    { 0x00008000, /* X_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP5_INTR_ENABLE_1r, IP5_INTR_STATUS_1r,
+        _soc_katana_ip5_1_parity_info },
+    { 0x00008000, /* X_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 0, IP5_INTR_ENABLE_2r, IP5_INTR_STATUS_2r,
+        _soc_katana_ip5_2_parity_info },
+    { 0x00010000, /* Y_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP5_INTR_ENABLEr, IP5_INTR_STATUSr,
+        _soc_katana_ip5_parity_info },
+    { 0x00010000, /* Y_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP5_INTR_ENABLE_1r, IP5_INTR_STATUS_1r,
+        _soc_katana_ip5_1_parity_info },
+    { 0x00010000, /* Y_IP5_TO_CMIC_PERR_INTR */
+        SOC_BLK_IPIPE, 1, IP5_INTR_ENABLE_2r, IP5_INTR_STATUS_2r,
+        _soc_katana_ip5_2_parity_info },
+    /*  0x00020000 PCIE_REPLAY_PERR */
+    { 0x00040000, /* PG5_0_TO_CMIC_PERR_INTR */
+        SOC_BLK_PORT_GROUP5, 0, PG5_INTR_ENABLEr, PG5_INTR_STATUSr,
+        _soc_katana_pg5_parity_info },
+    { 0x00080000, /* PG5_1_TO_CMIC_PERR_INTR */
+        SOC_BLK_PORT_GROUP5, 1, PG5_INTR_ENABLEr, PG5_INTR_STATUSr,
+        _soc_katana_pg5_parity_info },
+    { 0x00100000, /* PG4_0_TO_CMIC_PERR_INTR */
+        SOC_BLK_PORT_GROUP4, 0, PG4_INTR_ENABLEr, PG4_INTR_STATUSr,
+        _soc_katana_pg4_parity_info },
+    { 0x00200000, /* PG4_1_TO_CMIC_PERR_INTR */
+        SOC_BLK_PORT_GROUP4, 1, PG4_INTR_ENABLEr, PG4_INTR_STATUSr,
+        _soc_katana_pg4_parity_info },
+    { 0 } /* table terminator */
+};
+
+STATIC int
+_soc_katana_parity_enable_info(int unit, int pipe, soc_reg_t group_reg,
+                                uint32 *group_rval,
+                                const _soc_katana_parity_info_t *info_list,
+                                int enable);
+
+STATIC int
+_soc_katana_parity_enable_xlport(int unit, int pipe,
+                                  const _soc_katana_parity_info_t *info,
+                                  int enable)
+{
+    soc_reg_t xlport_reg;
+    uint32 addr, xlport_rval;
+    int blk, blk_num, port;
+
+    port = -1;
+    blk_num = info->id + pipe * 9;
+    SOC_BLOCK_ITER(unit, blk, SOC_BLK_XLPORT) {
+        if (SOC_BLOCK_INFO(unit, blk).number == blk_num) {
+            port = SOC_BLOCK_PORT(unit, blk);
+            break;
+        }
+    }
+    if (port < 0) {
+        return SOC_E_NONE;
+    }
+
+    xlport_reg = info->enable_reg;
+    addr = soc_reg_addr(unit, xlport_reg, port, 0);
+    SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &xlport_rval));
+
+    SOC_IF_ERROR_RETURN
+        (_soc_katana_parity_enable_info(unit, pipe, xlport_reg, &xlport_rval,
+                                         info->info, enable));
+
+    addr = soc_reg_addr(unit, xlport_reg, port, 0);
+    SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, xlport_rval));
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_enable_info(int unit, int pipe, soc_reg_t group_reg,
+                                uint32 *group_rval,
+                                const _soc_katana_parity_info_t *info_list,
+                                int enable)
+{
+    const _soc_katana_parity_info_t *info;
+    int info_index;
+    soc_reg_t reg;
+    uint32 addr, rval;
+
+    /* Loop through each info entry in the list */
+    for (info_index = 0; ; info_index++) {
+        info = &info_list[info_index];
+        if (info->type == _SOC_PARITY_TYPE_NONE) {
+            /* End of table */
+            break;
+        }
+
+        /* Enable the info entry in the group register */
+        soc_reg_field_set(unit, group_reg, group_rval,
+                          info->group_reg_enable_field, enable ? 1 : 0);
+
+        /* Handle different parity error reporting style */
+        switch (info->type) {
+        case _SOC_PARITY_TYPE_PARITY:
+        case _SOC_PARITY_TYPE_ECC:
+        case _SOC_PARITY_TYPE_HASH:
+        case _SOC_PARITY_TYPE_EDATABUF:
+        case _SOC_PARITY_TYPE_COUNTER:
+            reg = info->enable_reg;
+            if (!SOC_REG_IS_VALID(unit, reg)) {
+                continue;
+            }
+            addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+            SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+            soc_reg_field_set(unit, reg, &rval, info->enable_field,
+                              enable ? 1 : 0);
+            SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, rval));
+            break;
+        case _SOC_PARITY_TYPE_XLPORT:
+            /* One more level of report tree structure */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_enable_xlport(unit, pipe, info, enable));
+            break;
+        case _SOC_PARITY_TYPE_GENERIC:
+        default:
+            break;
+        } /* Handle different parity error reporting style */
+    } /* Loop through each info entry in the route block */
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_enable_all(int unit, int enable)
+{
+#ifdef _KATANA_DEBUG
+    const _soc_katana_parity_route_block_t *route_block;
+    int route_block_index;
+    soc_reg_t route_block_reg;
+    uint32 cmic_rval, route_block_rval;
+    uint32 addr, cmic_bit;
+#endif
+    uint32 rval;
+
+    /* MMU enables */
+    SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &rval));
+    soc_reg_field_set(unit, MISCCONFIGr, &rval, PARITY_STAT_CLEARf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+    soc_reg_field_set(unit, MISCCONFIGr, &rval, PARITY_CHK_ENf, 1);
+    soc_reg_field_set(unit, MISCCONFIGr, &rval, PARITY_GEN_ENf, 1);
+    soc_reg_field_set(unit, MISCCONFIGr, &rval, PARITY_STAT_CLEARf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+
+#ifdef _KATANA_DEBUG
+    cmic_rval = 0;
+    /* Loop through each place-and-route block entry */
+    for (route_block_index = 0; ; route_block_index++) {
+        route_block = &_soc_katana_parity_route_blocks[route_block_index];
+        cmic_bit = route_block->cmic_bit;
+        if (cmic_bit == 0) {
+            /* End of table */
+            break;
+        }
+        /* Enable the route block entry in the CMIC register */
+        if (enable) {
+            cmic_rval |= cmic_bit;
+        }
+
+        route_block_reg = route_block->enable_reg;
+        addr = soc_reg_addr(unit, route_block_reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &route_block_rval));
+
+        SOC_IF_ERROR_RETURN
+            (_soc_katana_parity_enable_info(unit, route_block->pipe,
+                                             route_block_reg,
+                                             &route_block_rval,
+                                             route_block->info, enable));
+
+        /* Write per route block parity enable register */
+        addr = soc_reg_addr(unit, route_block_reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, route_block_rval));
+    } /* Loop through each place-and-route block entry */
+
+    SOC_IF_ERROR_RETURN(READ_MEM_FAIL_INT_STATr(unit, &rval));
+
+#ifdef BCM_CMICM_SUPPORT
+    if (soc_feature(unit, soc_feature_cmicm)) {
+        
+        /* soc_cmicm_intr_enable(unit, IRQ_MEM_FAIL); */
+    } 
+#endif
+#endif /* _KATANA_DEBUG */
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_info(int unit, int pipe, soc_reg_t reg,
+                                 uint32 status,
+                                 const _soc_katana_parity_info_t *info_list,
+                                 char *prefix_str);
+
+STATIC int
+_soc_katana_parity_process_parity(int unit,
+                                   const _soc_katana_parity_info_t *info,
+                                   int schan, char *prefix_str, char *mem_str)
+{
+    _soc_katana_parity_reg_t reg_entry[2], *reg_ptr;
+    soc_reg_t reg;
+    uint32 addr, rval;
+    uint32 multiple, entry_idx, idx, has_error;
+    char *mem_str_ptr;
+
+    if (schan) {
+        /* Some table does not have NACK register */
+        if (info->nack_status_reg == INVALIDr &&
+            info->nack_status_reg_list == NULL) {
+            return SOC_E_NONE;
+        }
+        reg_entry[0].reg = info->nack_status_reg;
+        reg_entry[0].mem_str = NULL;
+        reg_entry[1].reg = INVALIDr;
+        reg_ptr = reg_entry;
+    } else {
+        if (info->intr_status_reg != INVALIDr) {
+            reg_entry[0].reg = info->intr_status_reg;
+            reg_entry[0].mem_str = NULL;
+            reg_entry[1].reg = INVALIDr;
+            reg_ptr = reg_entry;
+        } else if (info->intr_status_reg_list != NULL) {
+            reg_ptr = info->intr_status_reg_list;
+        } else {
+            return SOC_E_NONE;
+        }
+    }
+
+    has_error = FALSE;
+    for (idx = 0; reg_ptr[idx].reg != INVALIDr; idx++) {
+        reg = reg_ptr[idx].reg;
+        mem_str_ptr = reg_ptr[idx].mem_str != NULL ?
+            reg_ptr[idx].mem_str : mem_str;
+        addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+
+        if (soc_reg_field_get(unit, reg, rval, PARITY_ERRf)) {
+            has_error = TRUE;
+            multiple = soc_reg_field_get(unit, reg, rval, MULTIPLE_ERRf);
+            entry_idx = soc_reg_field_get(unit, reg, rval, ENTRY_IDXf);
+            soc_cm_debug(DK_ERR,
+                         "%s %s entry %d parity error\n",
+                         prefix_str, mem_str_ptr, entry_idx);
+            if (multiple) {
+                soc_cm_debug(DK_ERR,
+                             "%s %s has multiple parity errors\n",
+                             prefix_str, mem_str_ptr);
+            }
+        }
+
+        /* Clear parity status */
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, 0));
+    }
+
+    if (!has_error) {
+        soc_cm_debug(DK_ERR,
+                     "%s %s parity hardware inconsistency\n",
+                     prefix_str, mem_str);
+    }
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_ecc(int unit,
+                                const _soc_katana_parity_info_t *info,
+                                int schan, char *prefix_str, char *mem_str)
+{
+    _soc_katana_parity_reg_t reg_entry[2], *reg_ptr;
+    soc_reg_t reg;
+    uint32 addr, rval;
+    uint32 multiple, double_bit, entry_idx, idx, has_error;
+    char *mem_str_ptr;
+
+    if (schan) {
+        /* Some table does not have NACK register */
+        if (info->nack_status_reg == INVALIDr &&
+            info->nack_status_reg_list == NULL) {
+            return SOC_E_NONE;
+        }
+        reg_entry[0].reg = info->nack_status_reg;
+        reg_entry[0].mem_str = NULL;
+        reg_entry[1].reg = INVALIDr;
+        reg_ptr = reg_entry;
+    } else {
+        if (info->intr_status_reg != INVALIDr) {
+            reg_entry[0].reg = info->intr_status_reg;
+            reg_entry[0].mem_str = NULL;
+            reg_entry[1].reg = INVALIDr;
+            reg_ptr = reg_entry;
+        } else if (info->intr_status_reg_list != NULL) {
+            reg_ptr = info->intr_status_reg_list;
+        } else {
+            return SOC_E_NONE;
+        }
+    }
+
+    has_error = FALSE;
+    for (idx = 0; reg_ptr[idx].reg != INVALIDr; idx++) {
+        reg = reg_ptr[idx].reg;
+        mem_str_ptr = reg_ptr[idx].mem_str != NULL ?
+            reg_ptr[idx].mem_str : mem_str;
+        addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+
+        if (soc_reg_field_get(unit, reg, rval, ECC_ERRf)) {
+            has_error = TRUE;
+            multiple = soc_reg_field_get(unit, reg, rval, MULTIPLE_ERRf);
+            double_bit = soc_reg_field_get(unit, reg, rval, DOUBLE_BIT_ERRf);
+            entry_idx = soc_reg_field_get(unit, reg, rval, ENTRY_IDXf);
+            if (double_bit) {
+                soc_cm_debug(DK_ERR,
+                             "%s %s entry %d double-bit ECC error\n",
+                             prefix_str, mem_str_ptr, entry_idx);
+            } else {
+                soc_cm_debug(DK_ERR,
+                             "%s %s entry %d ECC error\n",
+                             prefix_str, mem_str_ptr, entry_idx);
+            }
+            if (multiple) {
+                soc_cm_debug(DK_ERR,
+                             "%s %s has multiple ECC errors\n",
+                             prefix_str, mem_str_ptr);
+            }
+        }
+
+        /* Clear parity status */
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, 0));
+    }
+
+    if (!has_error) {
+        soc_cm_debug(DK_ERR,
+                     "%s %s ECC hardware inconsistency\n",
+                     prefix_str, mem_str);
+    }
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_hash(int unit,
+                                 const _soc_katana_parity_info_t *info,
+                                 int schan, char *prefix_str, char *mem_str)
+{
+    _soc_katana_parity_reg_t *reg_ptr;
+    soc_reg_t reg;
+    uint32 addr, rval;
+    uint32 bitmap, multiple, bucket_idx;
+    int bucket_size, entry_idx, idx, bits, has_error;
+
+    if (schan) {
+        reg_ptr = info->nack_status_reg_list;
+    } else {
+        reg_ptr = info->intr_status_reg_list;
+    }
+
+    has_error = FALSE;
+    for (idx = 0; idx < 2; idx ++) {
+        reg = reg_ptr[idx].reg;
+        addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+
+        bitmap = soc_reg_field_get(unit, reg, rval, PARITY_ERR_BMf);
+        if (bitmap != 0) {
+            has_error = TRUE;
+            multiple = soc_reg_field_get(unit, reg, rval, MULTIPLE_ERRf);
+            bucket_idx = soc_reg_field_get(unit, reg, rval, BUCKET_IDXf);
+            bucket_size = soc_reg_field_length(unit, reg, PARITY_ERR_BMf);
+            for (bits = 0; bits < bucket_size; bits++) {
+                if (bitmap & (1 << bits)) {
+                    entry_idx = (bucket_idx * 2 + idx) * bucket_size + bits;
+                    soc_cm_debug(DK_ERR,
+                                 "%s %s entry %d parity error\n",
+                                 prefix_str, mem_str, entry_idx);
+                }
+            }
+            if (multiple) {
+                soc_cm_debug(DK_ERR,
+                             "%s %s has multiple parity errors\n",
+                             prefix_str, mem_str);
+            }
+        }
+
+        /* Clear parity status */
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, 0));
+    }
+
+    if (!has_error) {
+        soc_cm_debug(DK_ERR,
+                     "%s %s parity hardware inconsistency\n",
+                     prefix_str, mem_str);
+    }
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_edatabuf(int unit,
+                                     const _soc_katana_parity_info_t *info,
+                                     int schan, char *prefix_str,
+                                     char *mem_str)
+{
+    soc_reg_t reg;
+    uint32 addr, rval;
+    uint32 double_bit, multiple;
+
+    if (schan) {
+        /* Some table may not have NACK status register */
+        if (info->nack_status_reg == INVALIDr) {
+            return SOC_E_NONE;
+        }
+        reg = info->nack_status_reg;
+    } else {
+        reg = info->intr_status_reg;
+    }
+    reg = schan ? info->nack_status_reg : info->intr_status_reg;
+    addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+    SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+
+    if (soc_reg_field_get(unit, reg, rval, ECC_ERR_MGRPf)) {
+        double_bit = soc_reg_field_get(unit, reg, rval, ECC_ERR_2B_MGRPf);
+        multiple = soc_reg_field_get(unit, reg, rval, ECC_MULTI_MGRPf);
+        if (double_bit) {
+            soc_cm_debug(DK_ERR,
+                         "%s %s double-bit ECC error\n",
+                         prefix_str, mem_str);
+        } else {
+            soc_cm_debug(DK_ERR,
+                         "%s %s ECC error\n",
+                         prefix_str, mem_str);
+        }
+        if (multiple) {
+            soc_cm_debug(DK_ERR,
+                         "%s %s has multiple ECC errors\n",
+                         prefix_str, mem_str);
+        }
+    } else {
+        soc_cm_debug(DK_ERR,
+                     "%s %s ECC hardware inconsistency\n",
+                     prefix_str, mem_str);
+    }
+
+    /* Clear parity status */
+    SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, 0));
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_counter(int unit,
+                                    const _soc_katana_parity_info_t *info,
+                                    int schan, char *prefix_str, char *mem_str)
+{
+    soc_cmap_t *cmap;
+    soc_reg_t reg, counter_reg;
+    uint32 addr, rval;
+    uint32 multiple, counter_idx, port_idx, entry_idx;
+    char *counter_name;
+
+    if (schan) {
+        reg = info->nack_status_reg;
+    } else {
+        reg = info->intr_status_reg;
+    }
+    addr = soc_reg_addr(unit, reg, REG_PORT_ANY, 0);
+    SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &rval));
+
+    if (soc_reg_field_get(unit, reg, rval, PARITY_ERRf)) {
+        multiple = soc_reg_field_get(unit, reg, rval, MULTIPLE_ERRf);
+        counter_idx = soc_reg_field_get(unit, reg, rval, COUNTER_IDXf);
+        port_idx = soc_reg_field_get(unit, reg, rval, PORT_IDXf);
+        entry_idx = soc_reg_field_get(unit, reg, rval, ENTRY_IDXf);
+
+        /* TDBGC starts at index 0x20 of counter DMA table */
+        if (info->group_reg_status_field == EGR_STATS_COUNTER_TABLE_PAR_ERRf) {
+            counter_idx += 0x20;
+        }
+        cmap = soc_port_cmap_get(unit, port_idx);
+        counter_reg = cmap->cmap_base[counter_idx].reg;
+        if (SOC_REG_IS_VALID(unit, counter_reg)) {
+            counter_name = SOC_REG_NAME(unit, counter_reg);
+            soc_cm_debug(DK_ERR,
+                         "%s %s port %d %s entry %d parity error\n",
+                         prefix_str, mem_str, port_idx, counter_name,
+                         entry_idx);
+            if (multiple) {
+                soc_cm_debug(DK_ERR,
+                             "%s %s has multiple parity errors\n",
+                             prefix_str, mem_str);
+            }
+        } else {
+            soc_cm_debug(DK_ERR,
+                         "%s %s parity hardware inconsistency\n",
+                         prefix_str, mem_str);
+        }
+    } else {
+        soc_cm_debug(DK_ERR,
+                     "%s %s parity hardware inconsistency\n",
+                     prefix_str, mem_str);
+    }
+
+    /* Clear parity status */
+    SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, 0));
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_xlport(int unit, int pipe,
+                                   const _soc_katana_parity_info_t *info)
+{
+    soc_reg_t xlport_reg;
+    uint32 addr, xlport_rval;
+    int blk, blk_num, port;
+    char prefix_str[24];
+
+    if (info->intr_status_reg == INVALIDr) {
+        return SOC_E_NONE;
+    }
+
+    port = -1;
+    blk_num = info->id + pipe * 9;
+    SOC_BLOCK_ITER(unit, blk, SOC_BLK_XLPORT) {
+        if (SOC_BLOCK_INFO(unit, blk).number == blk_num) {
+            port = SOC_BLOCK_PORT(unit, blk);
+            break;
+        }
+    }
+    if (port < 0) {
+        return SOC_E_NONE;
+    }
+
+    xlport_reg = info->intr_status_reg;
+    addr = soc_reg_addr(unit, xlport_reg, port, 0);
+    SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &xlport_rval));
+    if (xlport_rval == 0) {
+        return SOC_E_NONE;
+    }
+
+    sal_sprintf(prefix_str, "unit %d XLPORT%d", unit, blk_num);
+    SOC_IF_ERROR_RETURN
+        (_soc_katana_parity_process_info(unit, pipe, xlport_reg, xlport_rval,
+                                          info->info, prefix_str));
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_info(int unit, int pipe, soc_reg_t group_reg,
+                                 uint32 group_rval,
+                                 const _soc_katana_parity_info_t *info_list,
+                                 char *prefix_str)
+{
+    const _soc_katana_parity_info_t *info;
+    int info_index;
+    char *mem_str;
+
+    /* Loop through each info entry in the list */
+    for (info_index = 0; ; info_index++) {
+        info = &info_list[info_index];
+        if (info->type == _SOC_PARITY_TYPE_NONE) {
+            /* End of table */
+            break;
+        }
+
+        /* Check status for the info entry in the group register */
+        if (!soc_reg_field_get(unit, group_reg, group_rval,
+                               info->group_reg_status_field)) {
+            continue;
+        }
+
+        if (info->mem_str) {
+            mem_str = info->mem_str;
+        } else if (info->mem != INVALIDm) {
+            mem_str = SOC_MEM_NAME(unit, info->mem);
+        } else {
+            mem_str = SOC_FIELD_NAME(unit, info->group_reg_status_field);
+        }
+
+        soc_event_generate(unit, SOC_SWITCH_EVENT_PARITY_ERROR, info->type,
+                           info->mem, info->group_reg_status_field);
+
+        /* Handle different parity error reporting style */
+        switch (info->type) {
+        case _SOC_PARITY_TYPE_GENERIC:
+            soc_cm_debug(DK_ERR, "%s %s asserted\n", prefix_str, mem_str);
+            break;
+        case _SOC_PARITY_TYPE_PARITY:
+            /* PARITY_ERRf, MULTIPLE_ERRf, ENTRY_IDXf */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_parity(unit, info, FALSE,
+                                                    prefix_str, mem_str));
+            break;
+        case _SOC_PARITY_TYPE_ECC:
+            /* ECC_ERRf, MULTIPLE_ERRf, DOUBLE_BIT_ERRf, ENTRY_IDXf */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_ecc(unit, info, FALSE,
+                                                 prefix_str, mem_str));
+            break;
+        case _SOC_PARITY_TYPE_HASH:
+            /* PARITY_ERR_BMf, MULTIPLE_ERRf, BUCKET_IDXf */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_hash(unit, info, FALSE,
+                                                  prefix_str, mem_str));
+            break;
+        case _SOC_PARITY_TYPE_EDATABUF:
+            /* ECC_ERR_MGRPf, ECC_ERR_2B_MGRPf, ECC_MULTI_MGRPf */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_edatabuf(unit, info, FALSE,
+                                                      prefix_str, mem_str));
+            break;
+        case _SOC_PARITY_TYPE_COUNTER:
+            /* PARITY_ERRf, MULTIPLE_ERRf, COUNTER_IDXf, PORT_IDX,
+               ENTRY_IDXf */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_counter(unit, info, FALSE,
+                                                     prefix_str, mem_str));
+            break;
+        case _SOC_PARITY_TYPE_XLPORT:
+            /* One more level of report tree structure */
+            SOC_IF_ERROR_RETURN
+                (_soc_katana_parity_process_xlport(unit, pipe, info));
+            break;
+        default:
+            break;
+        } /* Handle different parity error reporting style */
+    } /* Loop through each info entry in the list */
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_parity_process_all(int unit)
+{
+    const _soc_katana_parity_route_block_t *route_block;
+    int route_block_index;
+    soc_reg_t route_block_reg;
+    uint32 cmic_rval, route_block_rval;
+    uint32 route_block_enable;
+    uint32 addr, cmic_bit;
+    char prefix_str[10];
+
+    sal_sprintf(prefix_str, "unit %d", unit);
+
+    /* Read CMIC parity status register */
+    SOC_IF_ERROR_RETURN
+        (READ_CMIC_CHIP_PARITY_INTR_STATUSr(unit, &cmic_rval));
+    if (cmic_rval == 0) {
+        return SOC_E_NONE;
+    }
+
+    /* Loop through each place-and-route block entry */
+    for (route_block_index = 0; ; route_block_index++) {
+        route_block = &_soc_katana_parity_route_blocks[route_block_index];
+        cmic_bit = route_block->cmic_bit;
+        if (cmic_bit == 0) {
+            /* End of table */
+            break;
+        }
+
+        /* Check status for the route block in the CMIC register */
+        if (!(cmic_rval & cmic_bit)) {
+            /* No interrupt bit asserted for the route block */
+            continue;
+        }
+
+        /* Read per route block parity status register */
+        route_block_reg = route_block->status_reg;
+        addr = soc_reg_addr(unit, route_block_reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &route_block_rval));
+        if (route_block_rval == 0) {
+            continue;
+        }
+
+        SOC_IF_ERROR_RETURN
+            (_soc_katana_parity_process_info(unit, route_block->pipe,
+                                              route_block_reg,
+                                              route_block_rval,
+                                              route_block->info,
+                                              prefix_str));
+
+        route_block_reg = route_block->enable_reg;
+        addr = soc_reg_addr(unit, route_block_reg, REG_PORT_ANY, 0);
+        SOC_IF_ERROR_RETURN(soc_reg32_read(unit, addr, &route_block_enable));
+        route_block_enable &= ~route_block_rval;
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, route_block_enable));
+        route_block_enable |= route_block_rval;
+        SOC_IF_ERROR_RETURN(soc_reg32_write(unit, addr, route_block_enable));
+    } /* Loop through each place-and-route block entry */
+
+    return SOC_E_NONE;
+}
+
+void
+soc_katana_parity_error(void *unit_vp, void *d1, void *d2, void *d3, void *d4)
+{
+    int unit = PTR_TO_INT(unit_vp);
+
+    _soc_katana_parity_process_all(unit);
+    sal_usleep(1000); /* Don't reenable too soon */
+    
+#ifdef BCM_CMICM_SUPPORT
+    if (soc_feature(unit, soc_feature_cmicm)) {
+        
+        /* soc_cmicm_intr_enable(unit, IRQ_MEM_FAIL); */
+    } else
+#endif
+    {
+        soc_intr_enable(unit, IRQ_MEM_FAIL);
+    }
+}
+
+int
+soc_katana_pipe_mem_clear(int unit)
+{
+    uint32              rval;
+    int                 pipe_init_usec;
+    soc_timeout_t       to;
+
+    /*
+     * Reset the IPIPE and EPIPE block
+     */
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_ING_HW_RESET_CONTROL_1r(unit, rval));
+    soc_reg_field_set(unit, ING_HW_RESET_CONTROL_2r, &rval, RESET_ALLf, 1);
+    soc_reg_field_set(unit, ING_HW_RESET_CONTROL_2r, &rval, VALIDf, 1);
+    /* Set count to # entries in largest IPIPE table (L2X) */
+    soc_reg_field_set(unit, ING_HW_RESET_CONTROL_2r, &rval, COUNTf, 32768);
+    SOC_IF_ERROR_RETURN(WRITE_ING_HW_RESET_CONTROL_2r(unit, rval));
+
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_EGR_HW_RESET_CONTROL_0r(unit, rval));
+    soc_reg_field_set(unit, EGR_HW_RESET_CONTROL_1r, &rval, RESET_ALLf, 1);
+    soc_reg_field_set(unit, EGR_HW_RESET_CONTROL_1r, &rval, VALIDf, 1);
+    /* Set count to # entries in largest EPIPE table (EGR_VLAN_XLATE) */
+    soc_reg_field_set(unit, EGR_HW_RESET_CONTROL_1r, &rval, COUNTf, 16384);
+    SOC_IF_ERROR_RETURN(WRITE_EGR_HW_RESET_CONTROL_1r(unit, rval));
+
+    /* For simulation, set timeout to 10 sec.  Otherwise, timeout = 50 ms */
+    if (SAL_BOOT_SIMULATION) {
+        pipe_init_usec = 10000000;
+    } else {
+        pipe_init_usec = 50000;
+    }
+    soc_timeout_init(&to, pipe_init_usec, 0);
+
+    /* Wait for IPIPE memory initialization done. */
+    do {
+        SOC_IF_ERROR_RETURN(READ_ING_HW_RESET_CONTROL_2r(unit, &rval));
+        if (soc_reg_field_get(unit, ING_HW_RESET_CONTROL_2r, rval, DONEf)) {
+            break;
+        }
+        if (soc_timeout_check(&to)) {
+            soc_cm_debug(DK_WARN, "unit %d : ING_HW_RESET timeout\n", unit);
+            break;
+        }
+    } while (TRUE);
+
+    /* Wait for EPIPE memory initialization done. */
+    do {
+        SOC_IF_ERROR_RETURN(READ_EGR_HW_RESET_CONTROL_1r(unit, &rval));
+        if (soc_reg_field_get(unit, EGR_HW_RESET_CONTROL_1r, rval, DONEf)) {
+            break;
+        }
+        if (soc_timeout_check(&to)) {
+            soc_cm_debug(DK_WARN, "unit %d : EGR_HW_RESET timeout\n", unit);
+            break;
+        }
+    } while (TRUE);
+
+    SOC_IF_ERROR_RETURN(READ_ING_HW_RESET_CONTROL_2r(unit, &rval));
+    soc_reg_field_set(unit, ING_HW_RESET_CONTROL_2r, &rval, RESET_ALLf, 0);
+    soc_reg_field_set(unit, ING_HW_RESET_CONTROL_2r, &rval, CMIC_REQ_ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_ING_HW_RESET_CONTROL_2r(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_EGR_HW_RESET_CONTROL_1r(unit, &rval));
+    soc_reg_field_set(unit, EGR_HW_RESET_CONTROL_1r, &rval, RESET_ALLf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_EGR_HW_RESET_CONTROL_1r(unit, rval));
+
+    return SOC_E_NONE;
+}
+
+/*
+ * cpu port (mmu port 0): 48 queues (0-47)
+ * loopback port (mmu port 35): 8 queues (0-7)
+ * hg ports : 24 queues
+ * other ports : 8 queues, vlan levels : 64                                    
+ */
+
+int
+soc_katana_init_num_cosq(int unit)
+{
+    soc_info_t *si;
+    int port;
+
+    si = &SOC_INFO(unit);
+    PBMP_ALL_ITER(unit, port) {
+        if (IS_CPU_PORT(unit, port)) {
+            si->port_num_uc_cosq[port] = 48;
+        } else if (IS_HG_PORT(unit, port)) {
+            si->port_num_uc_cosq[port] = 24;
+        } else {
+            si->port_num_uc_cosq[port] = 8;
+        }
+        if ((soc_property_port_get(unit, port, spn_VLAN_QUEUE_ENABLE, 0) != 0)) {
+            si->port_num_ext_cosq[port] = soc_property_get(unit, 
+                                            spn_VLAN_QUEUE_LEVELS_MAX, 64);    
+        }    
+    }
+
+    return SOC_E_NONE;
+}
+
+void
+soc_katana_check_port_config(int unit)
+{
+    soc_info_t *si;
+    int pipe, group, blk, bindex, port, phy_port, mmu_port;
+    int pg_bandwidth, blk_bandwidth, speed_max;
+
+    si = &SOC_INFO(unit);
+
+    if (si->port_p2l_mapping[0] != 0 || si->port_p2m_mapping[0] != 0) {
+        soc_cm_print("Incorrect CPU port mapping: logical=%d mmu=%d\n",
+                     si->port_p2l_mapping[0], si->port_p2m_mapping[0]);
+    }
+    if (si->port_p2l_mapping[73] != 65 || si->port_p2m_mapping[73] != 33) {
+        soc_cm_print("Incorrect MMU port mapping: logical=%d mmu=%d\n",
+                     si->port_p2l_mapping[73], si->port_p2m_mapping[73]);
+    }
+    for (phy_port = 1; phy_port <= 72; phy_port++) {
+        mmu_port = si->port_p2m_mapping[phy_port];
+        if ((si->port_p2l_mapping[phy_port] == -1 &&
+             si->port_p2m_mapping[phy_port] != -1) ||
+            (si->port_p2l_mapping[phy_port] != -1 &&
+             si->port_p2m_mapping[phy_port] == -1)) {
+            soc_cm_print("Inconsistent port mapping: "
+                         "physical=%d logical=%d mmu=%d\n",
+                         phy_port, si->port_p2l_mapping[phy_port],
+                         si->port_p2m_mapping[phy_port]);
+            continue;
+        }
+        if (si->port_p2l_mapping[phy_port] == -1) {
+            continue;
+        }
+        if ((phy_port <= 36 && mmu_port >= 33) ||
+            (phy_port >= 37 && mmu_port <= 32)) {
+            soc_cm_print("Port mapping cross pipeline: "
+                         "physical=%d logical=%d mmu=%d\n",
+                         phy_port, si->port_p2l_mapping[phy_port],
+                         si->port_p2m_mapping[phy_port]);
+            continue;
+        }
+        speed_max = si->port_speed_max[si->port_p2l_mapping[phy_port]];
+        if (speed_max != 1000 && speed_max != 10000 && speed_max != 15000 &&
+            speed_max != 20000 && speed_max != 30000 && speed_max != 40000) {
+            soc_cm_print("Unsupport speed max value: "
+                         "physical=%d logical=%d mmu=%d speed_max=%d\n",
+                         phy_port, si->port_p2l_mapping[phy_port],
+                         si->port_p2m_mapping[phy_port], speed_max);
+            continue;
+        }
+    }
+
+    for (pipe = 0; pipe < 2; pipe++) {
+        for (group = 0; group < 2; group++) {
+            pg_bandwidth = 0;
+            for (blk = 0; blk < (group ? 4 : 5); blk++) {
+                blk_bandwidth = 0;
+                for (bindex = 0; bindex < 4; bindex++) {
+                    phy_port = 1 + pipe * 36 + group * 20 + blk * 4 + bindex;
+                    port = si->port_p2l_mapping[phy_port];
+                    if (port == -1) {
+                        continue;
+                    }
+                    blk_bandwidth += si->port_speed_max[port];
+                }
+                if (pipe == 0 && group == 0 && blk == 0 &&
+                    blk_bandwidth <= 4000) {
+                    continue;
+                }
+                if (blk_bandwidth > 40000) {
+                    soc_cm_print("XLPORT%d max bandwidth %dG exceed limit\n",
+                                 pipe * 9 + group * 5 + blk, blk_bandwidth);
+                }
+                pg_bandwidth += blk_bandwidth;
+            }
+            if (pg_bandwidth > si->bandwidth / 4) {
+                soc_cm_print("PORT_GROUP%d_%c bandwidth %dG exceed limit\n",
+                             group ? 4 : 5, pipe ? 'Y' : 'X', pg_bandwidth);
+            }
+        }
+    }
+}
+
+STATIC int
+_soc_katana_shaper_rate_info_dealloc(int unit)
+{
+    int rv = SOC_E_NONE;
+
+    if (shaper_info[unit] == NULL) {
+        return(rv);
+    }
+    if (shaper_info[unit]->basic_rate_info != NULL) {
+        sal_free(shaper_info[unit]->basic_rate_info);
+    }
+    if (shaper_info[unit]->burst_size_info != NULL) {
+        sal_free(shaper_info[unit]->burst_size_info);
+    }
+    sal_free(shaper_info[unit]);
+
+    return(rv);
+}
+
+STATIC int
+_soc_katana_shaper_rate_info_alloc(int unit)
+{
+    int          rv = SOC_E_NONE;
+    uint32       exponent, mantissa, denominator = 1;
+    uint64       numerator;
+    uint32       uRate = 0;
+    int          i, temp;
+
+    /* allocate shaper info */
+    shaper_info[unit] = sal_alloc(sizeof(katanaShaperInfo_t),
+                                                            "Katana_Shaper");
+    if (shaper_info[unit] == NULL) {
+        return(SOC_E_MEMORY);
+    }
+    sal_memset(shaper_info[unit], 0, sizeof(katanaShaperInfo_t));
+
+    /* allocate rate info */
+    shaper_info[unit]->basic_rate_info = sal_alloc(
+                    sizeof(katanaRateInfo_t) * (KATANA_SHAPER_RATE_MAX_EXPONENT + 1),
+                                                "Katana_Rate");
+    if (shaper_info[unit]->basic_rate_info == NULL) {
+        rv = SOC_E_MEMORY;
+        goto err;
+    }
+
+    /* allocate burst info */
+    shaper_info[unit]->burst_size_info = sal_alloc(
+                    sizeof(katanaRateInfo_t) * (KATANA_SHAPER_BURST_MAX_EXPONENT + 1),
+                                                 "Katana_Burst");
+    if (shaper_info[unit]->burst_size_info == NULL) {
+        rv = SOC_E_MEMORY;
+        goto err;
+    }
+
+    /* initialize rate info */
+    for (i = 0, mantissa = KATANA_SHAPER_RATE_MIN_MANTISSA;
+                           mantissa <= KATANA_SHAPER_RATE_MIN_MANTISSA; mantissa++) {
+        for (exponent = KATANA_SHAPER_RATE_MIN_EXPONENT;
+                           exponent <= KATANA_SHAPER_RATE_MAX_EXPONENT; exponent++) {
+	    if (exponent == 0) {
+	        /* (2^r_e+4) * (r_m/1024) / ref_cycle based on 7.8125uS(128KHz) */
+                COMPILER_64_ZERO(numerator); 
+            } else {
+	        /* (2^(r_e+3)) * (1+(r_m / 1024)) / ref_cycle 
+                   r_m = 0 => (1 << exponent + 3 + 7) */ 
+
+                COMPILER_64_SET(numerator, 0, 1);
+                temp = exponent + 10 + 10;
+                COMPILER_64_SHL(numerator, temp);
+            }
+
+            denominator = 1024;
+
+	    if (soc_esw_div64(numerator, denominator, &uRate) == -1) {
+	      rv = SOC_E_INTERNAL;
+	      goto err;
+	    }
+            /* the rate is stored in kbps */
+            shaper_info[unit]->basic_rate_info[i].rate     = uRate;
+            shaper_info[unit]->basic_rate_info[i].exponent = exponent;
+            shaper_info[unit]->basic_rate_info[i].mantissa = mantissa;
+            i++;
+        }
+    }
+
+    /* initialize burst info */
+    for (i = 0, mantissa = KATANA_SHAPER_BURST_MIN_MANTISSA;
+                           mantissa <= KATANA_SHAPER_BURST_MIN_MANTISSA; mantissa++) {
+        for (exponent = KATANA_SHAPER_BURST_MIN_EXPONENT;
+                           exponent <= KATANA_SHAPER_BURST_MAX_EXPONENT; exponent++) {
+
+	    /* rate = 2^(t_e+9) * (1+(t_m/128)) */
+            shaper_info[unit]->burst_size_info[i].rate = (1 << (exponent + 9));
+            shaper_info[unit]->burst_size_info[i].exponent = exponent;
+            shaper_info[unit]->burst_size_info[i].mantissa = mantissa;
+            i++;
+        }
+    }
+
+    return(rv);
+
+err:
+    _soc_katana_shaper_rate_info_dealloc(unit);
+    return(rv);
+}
+
+STATIC int
+_soc_katana_get_shaper_rate(int unit, uint32 rate, int *index,
+                            uint32 *rate_mantissa, uint32 *rate_exponent)
+{
+    int     rv = SOC_E_NONE;
+    int     i;
+    uint32  last_mantissa = -1, last_exponent = -1, cur_mantissa = -1, cur_exponent;
+    uint32  last_rate_diff = -1, cur_rate_diff;
+
+    if (rate == 0) {
+        *index = 0;
+        *rate_mantissa = 0;
+        *rate_exponent = 0;
+        return rv;
+    }    
+    /* As basic rate is stored in 32-bit kbps, diff will be in 32-bit */ 
+    for (i = 0; i < (KATANA_SHAPER_RATE_MAX_EXPONENT + 1); i++) {
+        cur_exponent = shaper_info[unit]->basic_rate_info[i].exponent;
+        if (cur_exponent == 0) {
+            cur_mantissa = (rate - shaper_info[unit]->basic_rate_info[i].rate) / 
+                               (1 << (cur_exponent + 1));
+        } else {
+            cur_mantissa = (rate - shaper_info[unit]->basic_rate_info[i].rate) / 
+                               (1 << cur_exponent);
+        }
+        if ( (cur_mantissa > KATANA_SHAPER_RATE_MAX_MANTISSA) ||
+             (cur_mantissa == KATANA_SHAPER_RATE_MIN_MANTISSA) ) {
+            continue;
+        }
+        
+        if (cur_exponent == 0) {
+            cur_rate_diff = rate - (shaper_info[unit]->basic_rate_info[i].rate + 
+                               (cur_mantissa * (1 << (cur_exponent+1))));
+        } else {
+            cur_rate_diff = rate - (shaper_info[unit]->basic_rate_info[i].rate + 
+                               (cur_mantissa * (1 << cur_exponent)));
+        }    
+
+        if (last_mantissa == -1) {
+            last_mantissa = cur_mantissa;
+            last_exponent = cur_exponent;
+            last_rate_diff = cur_rate_diff;
+        }
+        else if (cur_rate_diff < last_rate_diff) {
+            last_mantissa = cur_mantissa;
+            last_exponent = cur_exponent;
+            last_rate_diff = cur_rate_diff;
+        }
+
+        if (cur_rate_diff == 0) {
+            break;
+        }
+    }
+    if (last_mantissa == -1) {
+        rv = SOC_E_PARAM;
+        SOC_ERROR_PRINT((DK_ERR, "unit %d Ingress Shaper Rate not found\n", unit));
+        return(rv);
+    }
+    else {
+        (*index) = i;
+        (*rate_mantissa) = last_mantissa;
+        (*rate_exponent) = last_exponent;
+	SOC_DEBUG(SOC_DBG_VERBOSE,
+		  ("Closest Rate: %d Kbps rate: %d Kbps, mantissa: %d, exponent: %d\n",
+		   rate,
+		   ((shaper_info[unit]->basic_rate_info[i].rate * last_mantissa)/1000),
+		   last_mantissa, last_exponent));
+    }
+
+    return(rv);
+}
+
+STATIC int
+_soc_katana_get_shaper_burst_size(int unit, uint32 rate,
+                                  uint32 *burst_mantissa, uint32 *burst_exponent)
+{
+    int      rv = SOC_E_NONE;
+    int      i;
+    uint32 last_mantissa = -1, last_exponent = -1, cur_mantissa = -1, cur_exponent;
+    uint32 last_rate_diff = -1, cur_rate_diff;
+
+    SOC_DEBUG(SOC_DBG_VERBOSE,
+           ("\n\nCalculating default burst size, rate: %d\n", (unsigned int)rate));
+
+    if (rate == 0) {
+        *burst_mantissa = 0;
+        *burst_exponent = 0;
+        return rv;
+    }
+
+    for (i = 0; i < (KATANA_SHAPER_BURST_MAX_EXPONENT + 1); i++) {
+        cur_exponent = shaper_info[unit]->burst_size_info[i].exponent;
+
+        if (shaper_info[unit]->burst_size_info[i].rate <= rate) {
+            cur_mantissa = (rate - shaper_info[unit]->burst_size_info[i].rate) / 
+                               (1 << (cur_exponent + 2));
+        } else {
+            break;
+        }
+
+        if (cur_mantissa > KATANA_SHAPER_BURST_MAX_MANTISSA) {
+            continue;
+        }
+        
+        cur_rate_diff = rate - (shaper_info[unit]->burst_size_info[i].rate +
+                               (cur_mantissa * (1 << (cur_exponent + 2))));
+
+        if (last_mantissa == -1) {
+            last_mantissa = cur_mantissa;
+            last_exponent = cur_exponent;
+            last_rate_diff = cur_rate_diff;
+        }
+        else if (cur_rate_diff < last_rate_diff) {
+            last_mantissa = cur_mantissa;
+            last_exponent = cur_exponent;
+            last_rate_diff = cur_rate_diff;
+        }
+
+        if (cur_rate_diff == 0) {
+            break;
+        }
+    }
+    if (last_mantissa == -1) {
+        rv = SOC_E_PARAM;
+        SOC_ERROR_PRINT((DK_ERR, "unit %d Ingress Burst Size not found\n", unit));
+        return(rv);
+    }
+    else {
+        (*burst_mantissa) = last_mantissa;
+        (*burst_exponent) = last_exponent;
+
+        SOC_DEBUG(SOC_DBG_VERBOSE,
+                ("Closest BurstSize: %d kbps burstSize: %d kbps, mantissa: %d, exponent: %d\n",
+                    rate,
+                    (shaper_info[unit]->burst_size_info[i].rate  + 
+                    (last_mantissa * (1 << (last_exponent + 2)))),
+                    last_mantissa, last_exponent));
+    }
+
+    return(rv);
+}
+
+STATIC int
+_soc_katana_perq_flex_counters_init(int unit)
+{
+    uint32 rval = 0;
+    int index;
+    
+     /* create 3 segments each with 4K counters 
+      * seg0(deq stats) seg_start address 0
+      * seg1(total enq drop pkts)  seg_start address 4*1024
+      * seg2(red enq drop pkts) seg_start_address 8 * 1024 
+      */
+    soc_reg_field_set(unit, CTR_SEGMENT_STARTr, &rval, SEG_STARTf, 0);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_SEGMENT_STARTr, REG_PORT_ANY, 0),
+                                               rval));
+
+    rval = 0;    
+    soc_reg_field_set(unit, CTR_SEGMENT_STARTr, &rval, SEG_STARTf, 4096);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_SEGMENT_STARTr, REG_PORT_ANY, 1),
+                                                   rval));
+    rval = 0;    
+    soc_reg_field_set(unit, CTR_SEGMENT_STARTr, &rval, SEG_STARTf, 8192);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_SEGMENT_STARTr, REG_PORT_ANY, 2),
+                                                   rval));
+    rval = 0;
+    soc_reg_field_set(unit, CTR_DEQ_STATS_CFGr, &rval, ACTIVE0f, 1);
+    soc_reg_field_set(unit, CTR_DEQ_STATS_CFGr, &rval, SEG0f, 0);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_DEQ_STATS_CFGr, REG_PORT_ANY, 0),
+                                                   rval));
+
+    rval = 0;
+    index = 0; /* green pkt drops in enq */
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, ACTIVE0f, 1);
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, SEG0f, 1);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_ENQ_STATS_CFGr, REG_PORT_ANY, index),
+                                                           rval));
+    
+    index = 1; /* red pkt drops in enq; red drop updates 2 counts(total and only red) */
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, ACTIVE0f, 1);
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, SEG0f, 1);
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, ACTIVE1f, 1);
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, SEG1f, 2);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_ENQ_STATS_CFGr, REG_PORT_ANY, index),
+                                                            rval));
+    
+    rval = 0;                                               
+    index = 3;  /* yellow drops */
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, ACTIVE0f, 1);
+    soc_reg_field_set(unit, CTR_ENQ_STATS_CFGr, &rval, SEG0f, 1);
+    SOC_IF_ERROR_RETURN
+        (soc_reg32_write(unit, soc_reg_addr(unit, CTR_ENQ_STATS_CFGr, REG_PORT_ANY, index),    
+                                                            rval));
+    return SOC_E_NONE;
+}
+
+int
+soc_katana_get_shaper_rate_info(int unit, uint32 rate,
+                                 uint32 *rate_mantissa, uint32 *rate_exponent)
+{
+    int rv = SOC_E_NONE;
+    int index;
+
+    if (shaper_info[unit] == NULL) {
+        rv = _soc_katana_shaper_rate_info_alloc(unit);
+        if (rv != SOC_E_NONE) {
+            return(rv);
+        }
+    }
+
+    rv = _soc_katana_get_shaper_rate(unit, rate, &index, rate_mantissa, rate_exponent);
+    if (rv != SOC_E_NONE) {
+        return(rv);
+    }
+
+    return(rv);
+}
+
+int
+soc_katana_get_shaper_burst_info(int unit, uint32 rate,
+                                 uint32 *burst_mantissa, uint32 *burst_exponent)
+{
+    int rv = SOC_E_NONE;
+    uint32 burst_bps;
+
+    if (shaper_info[unit] == NULL) {
+        rv = _soc_katana_shaper_rate_info_alloc(unit);
+        if (rv != SOC_E_NONE) {
+            return(rv);
+        }
+    }
+
+    /* convert kbps to bps */
+    burst_bps = rate * 1024;
+    if (burst_bps > 0xFF0000) {
+        burst_bps = 0xFF0000;
+    }    
+
+    rv = _soc_katana_get_shaper_burst_size(unit,
+                        burst_bps, burst_mantissa, burst_exponent);
+    if (rv != SOC_E_NONE) {
+        return(rv);
+    }
+
+    return(rv);
+}
+
+int
+soc_katana_compute_shaper_rate(int unit, uint32 rate_mantissa, 
+                               uint32 rate_exponent, uint32 *rate)
+{
+    int rv = SOC_E_NONE;
+    uint64 numerator;
+    uint32 denominator;    
+    uint32 temp;
+
+    if (rate_exponent == 0) {
+	/* (2^r_e+4) * (r_m/1024) / ref_cycle based on 7.8125uS(128KHz) */
+        COMPILER_64_SET(numerator, 0, rate_mantissa);
+        COMPILER_64_SHL(numerator, 11);
+    } else {
+	/* (2^(r_e+3)) * (1+(r_m / 1024)) / ref_cycle */
+        temp = 1024 + rate_mantissa;
+        COMPILER_64_SET(numerator, 0, temp);
+        temp = rate_exponent + 3 + 7;
+        COMPILER_64_SHL(numerator, temp);
+    }
+
+    denominator = 1024;
+
+    if (soc_esw_div64(numerator, denominator, rate) == -1) {
+        rv = SOC_E_INTERNAL;
+    }
+
+    return(rv);
+}
+
+int
+soc_katana_compute_shaper_burst(int unit, uint32 burst_mantissa, 
+                               uint32 burst_exponent, uint32 *rate)
+{
+    int rv = SOC_E_NONE;
+    /* rate = 2^(t_e+9) * (1+(t_m/128)) */
+    *rate = ((1 << (burst_exponent + 9)) * (128 + burst_mantissa)) / 128;
+
+    /* convert bps to kbps */
+    *rate = *rate / 1024;
+
+    return(rv);
+}
+
+/* 56440/56445 TDM sequence */
+uint32 ka_tdm_0[78] = { 1,9,25,26,27,28,
+                        17,2,25,26,27,28,
+                        0,10,18,25,26,27,
+                        28,3,11,25,26,27,
+                        28,35,19,4,25,26,
+                        27,28,12,20,25,26,
+                        27,28,63,5,13,25,
+                        26,27,28,21,6,25,
+                        26,27,28,0,14,22,
+                        25,26,27,28,7,15,
+                        25,26,27,28,35,23,
+                        8,25,26,27,28,16,
+                        24,25,26,27,28,35
+                      };
+/* 56441 TDM sequence */
+uint32 ka_tdm_1[48] = { 9,28,63,27,
+                        63,28,10,27,
+                        63,28,0,27,
+                        11,28,63,27,
+                        63,28,12,27,
+                        35,28,63,27,
+                        13,28,63,27,
+                        63,28,14,27,
+                        35,28,63,27,
+                        15,28,63,27,
+                        63,28,16,27,
+                        35,28,0,27
+                      };
+/* 56442 TDM sequence */
+uint32 ka_tdm_2[48] = { 9,17,63,35,
+                        63,0,10,18,
+                        63,63,63,63,
+                        11,19,35,63,
+                        63,63,12,20,
+                        63,0,63,63,
+                        13,21,35,63,
+                        63,63,14,22,
+                        63,63,63,63,
+                        15,23,35,63,
+                        63,63,16,24,
+                        63,63,0,63
+                      };
+/* 56443 TDM sequence */
+uint32 ka_tdm_3[40] = { 27,35,26,25,
+                        32,28,26,25,
+                        33,29,26,25,
+                        34,30,26,25,
+                        35,31,26,25,
+                        27,28,26,25,
+                        32,29,26,25,
+                        33,30,26,25,
+                        34,31,26,25,
+                        0,63,26,25
+                      };
+/* 56440/56445 config-1 TDM sequence */
+uint32 ka_tdm_4[78] = { 1,9,25,26,28,0,
+                        17,2,25,26,29,0,
+                        10,18,25,26,30,35,
+                        3,11,25,26,31,35,
+                        19,4,25,26,28,35,
+                        12,20,25,26,29,63,
+                        5,13,25,26,30,63,
+                        21,6,25,26,31,63,
+                        14,22,25,26,28,63,
+                        7,15,25,26,29,63,
+                        23,8,25,26,30,63,
+                        16,24,25,26,31,63,
+                        63,63,25,26,63,63
+                      };
+
+
+static uint32
+ _soc_katana_mmu_tdm_var(uint32 *arr, uint16 dev_id, int cfg_num, int pos)
+{
+    uint32 retval;
+
+    retval = arr[pos];
+    
+    switch (dev_id) {
+        case BCM56440_DEVICE_ID:
+        case BCM56445_DEVICE_ID:
+            break;
+        case BCM56441_DEVICE_ID:
+        case BCM56446_DEVICE_ID:
+            if (cfg_num == 1) {
+                switch (pos) {
+                    case 5: case 21: case 37: 
+                        retval = 29;
+                        break;
+                    case 9: case 25: case 41:
+                        retval = 30;
+                        break;
+                    case 13: case 29: case 45:
+                        retval = 31;
+                        break;
+                    case 7: case 23: case 39:
+                        retval = 32;
+                        break;
+                    case 11: case 27: case 43:
+                        retval = 33;
+                        break;
+                    case 15: case 31: case 47:
+                        retval = 34;
+                        break;
+                }
+            } else if (cfg_num == 2) {
+                switch (pos) {
+                    case 24 :
+                        retval = 9;
+                        break;
+                    case 30:
+                        retval = 10;
+                        break;
+                    case 36:
+                        retval = 11;
+                        break;
+                    case 42:
+                        retval = 12;
+                        break;
+                    case 5: case 13: case 21: case 29: case 37: case 45:
+                        retval = 29;
+                        break;
+                }                
+            }
+            if (dev_id == BCM56446_DEVICE_ID) {
+                if ((retval >= 9) && (retval <= 16)) {
+                    retval -= 8;
+                }
+            }
+            break;
+
+
+        case BCM56442_DEVICE_ID:
+        case BCM56447_DEVICE_ID:
+            if (dev_id == BCM56447_DEVICE_ID) {
+                if ((retval >= 17) && (retval <= 24)) {
+                    retval -= 16;
+                }
+            }
+            break;
+        case BCM56443_DEVICE_ID:
+        case BCM56448_DEVICE_ID:
+        default:
+            break;
+    }
+
+    return retval;
+}
+
+ STATIC int
+_soc_katana_mmu_tdm_init(int unit)
+{
+    uint32 *arr;
+    int i, tdm_size, cfg_num;
+    iarb_tdm_table_entry_t iarb_tdm;
+    lls_port_tdm_entry_t lls_tdm;
+    uint32 rval, arr_ele;
+    uint16 dev_id;
+    uint8 rev_id;
+
+    soc_cm_get_id(unit, &dev_id, &rev_id);
+    cfg_num = soc_property_get(unit, spn_BCM5644X_CONFIG, 0);
+
+    if ((dev_id == BCM56440_DEVICE_ID) || (dev_id == BCM56444_DEVICE_ID) || 
+        (dev_id == BCM56445_DEVICE_ID) || (dev_id == BCM56448_DEVICE_ID)) {
+        tdm_size = 78;
+	if (cfg_num == 1 && ((dev_id == BCM56440_DEVICE_ID) ||
+	    (dev_id == BCM56445_DEVICE_ID))) {
+	    arr = ka_tdm_4;
+	} else {
+            arr = ka_tdm_0;
+	}	
+    } else if ((dev_id == BCM56441_DEVICE_ID) || (dev_id == BCM56446_DEVICE_ID)) {
+        tdm_size = 48;
+        arr = ka_tdm_1;
+    } else if ((dev_id == BCM56442_DEVICE_ID) || (dev_id == BCM56447_DEVICE_ID)) {
+        tdm_size = 48;
+        arr = ka_tdm_2;
+    } else if (dev_id == BCM56443_DEVICE_ID) {
+        tdm_size = 40;
+        arr = ka_tdm_3;
+    } else {
+        return SOC_E_FAIL;
+    }
+
+    /* Disable IARB TDM before programming... */
+    SOC_IF_ERROR_RETURN(READ_IARB_TDM_CONTROLr(unit, &rval));
+    soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, DISABLEf, 1);
+    soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, TDM_WRAP_PTRf,
+                      tdm_size -1);
+    SOC_IF_ERROR_RETURN(WRITE_IARB_TDM_CONTROLr(unit, rval));
+
+    for (i = 0; i < tdm_size; i++) {
+        arr_ele = _soc_katana_mmu_tdm_var(arr, dev_id, cfg_num, i);
+
+        sal_memset(&iarb_tdm, 0, sizeof(iarb_tdm_table_entry_t));
+        soc_IARB_TDM_TABLEm_field32_set(unit, &iarb_tdm, PORT_NUMf,
+                                        arr_ele);
+        SOC_IF_ERROR_RETURN(WRITE_IARB_TDM_TABLEm(unit, SOC_BLOCK_ALL, i, 
+                                                  &iarb_tdm));
+
+        if (0 == (i%2)) {
+            /* Two entries per mem entry */
+            sal_memset(&lls_tdm, 0, sizeof(lls_port_tdm_entry_t));
+            soc_LLS_PORT_TDMm_field32_set(unit, &lls_tdm, PORT_ID_0f, arr_ele);
+            soc_LLS_PORT_TDMm_field32_set(unit, &lls_tdm, PORT_ID_0_ENABLEf, 1);
+        } else {
+            soc_LLS_PORT_TDMm_field32_set(unit, &lls_tdm, PORT_ID_1f, arr_ele);
+            soc_LLS_PORT_TDMm_field32_set(unit, &lls_tdm, PORT_ID_1_ENABLEf, 1);
+            SOC_IF_ERROR_RETURN(WRITE_LLS_PORT_TDMm(unit, SOC_BLOCK_ALL, (i/2),
+                                                      &lls_tdm));
+        }
+    }
+    SOC_IF_ERROR_RETURN(READ_IARB_TDM_CONTROLr(unit, &rval));
+    soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, DISABLEf, 0);
+    soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, TDM_WRAP_PTRf,
+                      tdm_size -1);
+    SOC_IF_ERROR_RETURN(WRITE_IARB_TDM_CONTROLr(unit, rval));
+
+    
+    rval = 0;
+    soc_reg_field_set(unit, LLS_TDM_CAL_CFGr, &rval, END_Af, tdm_size - 1);
+    soc_reg_field_set(unit, LLS_TDM_CAL_CFGr, &rval, END_Bf, tdm_size - 1);
+    soc_reg_field_set(unit, LLS_TDM_CAL_CFGr, &rval, ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_TDM_CAL_CFGr(unit, rval));
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_ci_init(int unit)
+{
+    uint32 rval, cfg1, cfg2, cfg3, cfg4;
+    int i=0, ci;
+    sal_usecs_t to_val;
+    soc_timeout_t to;
+    /* For Phy Tuning */
+    int wl, type, preset_value;
+    uint32 result[64];
+    uint32 init_step[16];
+    uint32 new_step[16];
+
+    /* Per Speed & Grade Parameters */
+    int ndiv, mdiv;
+    int twl, twr, trc;  /* CONFIG0 */
+    int trtw, twtr, tfaw, tread_enb;  /* CONFIG2 */
+    int bank_unavail_rd, bank_unavail_wr;  /* CONFIG3 */
+    int rr_read, rr_write;  /* CONFIG3 */
+    int refrate; /* CONFIG4 */
+    int trfc, trp_read, trp_write; /* CONFIG6 */
+    int cl, cwl, wr, chip_siz, ad_width; /* PHY_STRAP0 */
+    int jedec, mhz; /* PHY_STRAP1 */
+    uint32 mr0,mr2;
+
+    if (SAL_BOOT_QUICKTURN) {
+        to_val = 10000000; /* 10 Sec */
+    } else {
+        to_val = 50000; /* 50 mS */
+    }
+
+    /* Katana opnly supports 1024 cols * 8 banks * 16 bits.
+        *  512M is unsupported
+        */
+    if (SOC_DDR3_NUM_ROWS(unit) == 32768) {
+        chip_siz = 0; /* 4G */
+        ad_width = 2; /* 14b */
+    } else if (SOC_DDR3_NUM_ROWS(unit) == 16384) {
+        chip_siz = 1; /* 2G */
+        ad_width = 1; /* 13b */
+    } else { /* 1G */
+        chip_siz = 2; /* 1G */
+        ad_width = 0; /* 12b */
+    }
+
+    ndiv = (533 == SOC_DDR3_CLOCK_MHZ(unit) ) ? 96 : 80;
+    mdiv = (533 == SOC_DDR3_CLOCK_MHZ(unit) ) ? 9 :
+              (667 == SOC_DDR3_CLOCK_MHZ(unit) ) ? 6 : 5;
+
+    /* Add CFAP limit to 128k when run in single ci mode  */
+    if (1 == SOC_DDR3_NUM_MEMORIES(unit)) {
+        SOC_IF_ERROR_RETURN(READ_CFAPEFULLSETPOINTr(unit, &rval));
+        i = soc_reg_field_get(unit, CFAPEFULLSETPOINTr, rval, CFAPEFULLSETPOINTf);
+        soc_reg_field_set(unit, CFAPEFULLSETPOINTr, &rval, CFAPEFULLSETPOINTf, 128000);
+        SOC_IF_ERROR_RETURN(WRITE_CFAPEFULLSETPOINTr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_CFAPEFULLRESETPOINTr(unit, &rval));
+        i -= soc_reg_field_get(unit, CFAPEFULLRESETPOINTr, rval, CFAPEFULLRESETPOINTf);
+        soc_reg_field_set(unit, CFAPEFULLRESETPOINTr, &rval, CFAPEFULLRESETPOINTf, 128000 - i);
+        SOC_IF_ERROR_RETURN(WRITE_CFAPEFULLRESETPOINTr(unit, rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(0) Set DDR PLL divisors\n");
+    SOC_IF_ERROR_RETURN(READ_TOP_SOFT_RESET_REG_2r(unit,&rval));
+    soc_reg_field_set(unit, TOP_SOFT_RESET_REG_2r, &rval, TOP_DDR3_PLL_RST_Lf, 0);
+    soc_reg_field_set(unit, TOP_SOFT_RESET_REG_2r, &rval, TOP_DDR3_PLL_POST_RST_Lf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_SOFT_RESET_REG_2r(unit,rval));
+
+    SOC_IF_ERROR_RETURN(soc_reg_field32_modify(unit, DDR3_PLL_CTRL_REGISTER_3r,
+                        REG_PORT_ANY, NDIV_INTf, ndiv));
+    SOC_IF_ERROR_RETURN(soc_reg_field32_modify(unit, DDR3_PLL_CTRL_REGISTER_4r,
+                        REG_PORT_ANY, CH0_MDIVf, mdiv));
+
+    SOC_IF_ERROR_RETURN(READ_TOP_SOFT_RESET_REG_2r(unit,&rval));
+    soc_reg_field_set(unit, TOP_SOFT_RESET_REG_2r, &rval, TOP_DDR3_PLL_RST_Lf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_SOFT_RESET_REG_2r(unit,rval));
+
+    soc_timeout_init(&to, to_val, 0);
+    do {
+        SOC_IF_ERROR_RETURN(READ_DDR3_PLL_STATUSr(unit,&rval));
+        if (soc_reg_field_get(unit, DDR3_PLL_STATUSr, rval, DDR3_PLL_LOCKf)) {
+            break;
+        }
+        if (soc_timeout_check(&to)) {
+            soc_cm_debug(DK_ERR, "Timed out waiting for DDR3 PLL to Lock\n");
+            return SOC_E_TIMEOUT;
+        }
+    } while (TRUE);
+
+    SOC_IF_ERROR_RETURN(READ_TOP_SOFT_RESET_REG_2r(unit,&rval));
+    soc_reg_field_set(unit, TOP_SOFT_RESET_REG_2r, &rval, TOP_DDR3_PLL_POST_RST_Lf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_SOFT_RESET_REG_2r(unit,rval));
+
+    soc_cm_debug(DK_VERBOSE, "(1) Bring CI out of software reset\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_RESETr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_RESETr, &rval, TREX2_DEBUG_ENABLEf, 0);
+        soc_reg_field_set(unit, CI_RESETr, &rval, DDR_RESET_Nf, 0);
+        soc_reg_field_set(unit, CI_RESETr, &rval, PHY_SW_INITf, 1);
+        soc_reg_field_set(unit, CI_RESETr, &rval, SW_RESETf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_CI_RESETr(unit,ci,rval));
+        sal_usleep(2000);
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(2) Set Strap and parameter per speed and grade\n");
+
+    if (800 == SOC_DDR3_CLOCK_MHZ(unit) ) { /* def grade 11-11-11 */
+        twl = 13; twr = 6; trc = 20;
+        trtw = 8; twtr = 12; tfaw = 16; tread_enb = 16;
+        bank_unavail_rd = 20; bank_unavail_wr = 26;
+        trp_read = 0x12; trp_write = 0x16; /* trp_read = 16; trp_write = 21; */
+        cl = 11;  cwl = 8; wr = 12;
+        jedec = 14; mhz = 800;
+        mr0 = 0xc70; mr2 = 0x18;
+        refrate = 3120;
+        if (chip_siz == 0) {
+            trfc = 240;
+        } else if (chip_siz == 1) {
+            trfc = 128;
+        } else {
+            trfc = 88;
+        }
+        if (0x101010 == SOC_DDR3_MEM_GRADE(unit)) {
+            twl--; trc--; trtw--; twtr--;
+            tread_enb -= 2;
+            bank_unavail_rd--; bank_unavail_wr--;
+            trp_read--; trp_write--;
+            cl--;
+            mr0 = 0xc60;
+        }
+    } else if (667 == SOC_DDR3_CLOCK_MHZ(unit) ) { /* 09-09-09 */
+        twl = 10; twr = 5; trc = 17;
+        trtw = 7; twtr = 10; tfaw = 15; tread_enb = 12;
+        bank_unavail_rd = 17; bank_unavail_wr = 24;
+        trp_read = 14; trp_write = 18;
+        cl = 9;  cwl = 7; wr = 10;
+        jedec = 16; mhz = 667;
+        mr0 = 0xb50; mr2 = 0x10;
+        refrate = 2600;
+        if (chip_siz == 0) {
+            trfc = 200;
+        } else if (chip_siz == 1) {
+            trfc = 108;
+        } else {
+            trfc = 108;
+        }
+        if (0x101010 == SOC_DDR3_MEM_GRADE(unit)) {
+            twl++; trc++; twtr++;
+            tread_enb += 2;
+            bank_unavail_wr++;
+            trp_read++; trp_write++;
+            cl++;
+            mr0 = 0xb60;
+        }
+    } else if (533 == SOC_DDR3_CLOCK_MHZ(unit) ) { /* 07-07-07 */
+        twl = 7; twr = 4; trc = 14;
+        trtw = 6; twtr = 9; tfaw = 15; tread_enb = 8;
+        bank_unavail_rd = 14; bank_unavail_wr = 21;
+        trp_read = 12; trp_write = 16;
+        cl = 7;  cwl = 6; wr = 8;
+        jedec = 21; mhz = 533;
+        mr0 = 0x830; mr2 = 0x08;
+        refrate = 2080;
+        if (chip_siz == 0) {
+            trfc = 160;
+        } else if (chip_siz == 1) {
+            trfc = 86;
+        } else {
+            trfc = 60;
+        }
+
+        if (0x080808 == SOC_DDR3_MEM_GRADE(unit)) {
+            twl++; tread_enb += 2;
+            trp_read++;
+            cl++;
+            mr0 = 0x840;
+        }
+    } else {
+        soc_cm_debug(DK_ERR, "Unsupported Speed %d MHz \n", SOC_DDR3_MEM_GRADE(unit));
+        return SOC_E_FAIL;
+    }
+
+     tread_enb = soc_property_get(unit,spn_DDR3_TREAD_ENB, tread_enb);
+     bank_unavail_rd = soc_property_get(unit,spn_DDR3_BANK_UNAVAIL_RD, bank_unavail_rd);
+     bank_unavail_wr = soc_property_get(unit,spn_DDR3_BANK_UNAVAIL_WR, bank_unavail_wr);
+     trp_read = soc_property_get(unit,spn_DDR3_TRP_READ, trp_read);
+     trp_write = soc_property_get(unit,spn_DDR3_TRP_WRITE, trp_write);
+     rr_read = soc_property_get(unit,spn_DDR3_ROUND_ROBIN_READ, 0);
+     rr_write = soc_property_get(unit,spn_DDR3_ROUND_ROBIN_WRITE, 0);
+
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_CONFIG0r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_CONFIG0r, &rval, TWLf, (ci==1)?(twl-1):twl);
+        soc_reg_field_set(unit, CI_CONFIG0r, &rval, TWRf, twr);
+        soc_reg_field_set(unit, CI_CONFIG0r, &rval, TRCf, trc);
+        SOC_IF_ERROR_RETURN(WRITE_CI_CONFIG0r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_CONFIG2r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_CONFIG2r, &rval, TRTWf, trtw);
+        soc_reg_field_set(unit, CI_CONFIG2r, &rval, TWTRf, twtr);
+        soc_reg_field_set(unit, CI_CONFIG2r, &rval, TFAWf, tfaw);
+        soc_reg_field_set(unit, CI_CONFIG2r, &rval, TREAD_ENBf, (ci==1)?(tread_enb-1):tread_enb);
+        SOC_IF_ERROR_RETURN(WRITE_CI_CONFIG2r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_CONFIG3r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_CONFIG3r, &rval, BANK_UNAVAILABLE_WRf, bank_unavail_wr);
+        soc_reg_field_set(unit, CI_CONFIG3r, &rval, BANK_UNAVAILABLE_RDf, bank_unavail_rd);
+        soc_reg_field_set(unit, CI_CONFIG3r, &rval, RR_READf, rr_read);
+        soc_reg_field_set(unit, CI_CONFIG3r, &rval, RR_WRITEf, rr_write);
+        SOC_IF_ERROR_RETURN(WRITE_CI_CONFIG3r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_CONFIG6r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_CONFIG6r, &rval, TRFCf, trfc/2);
+        soc_reg_field_set(unit, CI_CONFIG6r, &rval, TRP_READf, trp_read);
+        soc_reg_field_set(unit, CI_CONFIG6r, &rval, TRP_WRITEf, trp_write);
+        SOC_IF_ERROR_RETURN(WRITE_CI_CONFIG6r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_PHY_STRAPS0r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_PHY_STRAPS0r, &rval, CLf, cl);
+        soc_reg_field_set(unit, CI_PHY_STRAPS0r, &rval, CWLf, cwl);
+        soc_reg_field_set(unit, CI_PHY_STRAPS0r, &rval, WRf, wr);
+        soc_reg_field_set(unit, CI_PHY_STRAPS0r, &rval, CHIP_SIZEf, chip_siz);
+        soc_reg_field_set(unit, CI_PHY_STRAPS0r, &rval, AD_WIDTHf, ad_width);
+        SOC_IF_ERROR_RETURN(WRITE_CI_PHY_STRAPS0r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_PHY_STRAPS1r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_PHY_STRAPS1r, &rval, JEDECf, 16);
+        soc_reg_field_set(unit, CI_PHY_STRAPS1r, &rval, MHZf, 667);
+        SOC_IF_ERROR_RETURN(WRITE_CI_PHY_STRAPS1r(unit,ci,rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(3) Clear CI Phy reset\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_CI_RESETr(unit,ci,rval));
+    }
+    sal_usleep(2000);
+
+    soc_cm_debug(DK_VERBOSE, "(4) config MR0, MR2, config2, and config6 registers\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+
+        SOC_IF_ERROR_RETURN(READ_CI_DDR_MR0r(unit,ci,&rval)); /* set bits 11..9, 6..4 */
+        soc_reg_field_set(unit, CI_DDR_MR0r, &rval, Af,  ((rval & 0x718f) | mr0));
+        SOC_IF_ERROR_RETURN(WRITE_CI_DDR_MR0r(unit,ci,rval));
+
+        
+        SOC_IF_ERROR_RETURN(READ_CI_DDR_MR1r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_DDR_MR1r, &rval, Af,  ((rval & 0x7fef) | 0x10));
+        SOC_IF_ERROR_RETURN(WRITE_CI_DDR_MR1r(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_CI_DDR_MR2r(unit,ci,&rval)); /* Bits 5..3 */
+        soc_reg_field_set(unit, CI_DDR_MR2r, &rval, Af,  ((rval & 0x7fc7) | mr2));
+        SOC_IF_ERROR_RETURN(WRITE_CI_DDR_MR2r(unit,ci,rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(6) Clear CI DDR Reset\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_RESETr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_RESETr, &rval, TREX2_DEBUG_ENABLEf, 0);
+        soc_reg_field_set(unit, CI_RESETr, &rval, DDR_RESET_Nf, 1);
+        soc_reg_field_set(unit, CI_RESETr, &rval, PHY_SW_INITf, 0);
+        soc_reg_field_set(unit, CI_RESETr, &rval, SW_RESETf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_CI_RESETr(unit,ci,rval));
+    }
+    sal_usleep(2000);
+
+    soc_cm_debug(DK_VERBOSE, "(6) Set DDR_RST_N\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_PHY_CONTROLr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, DDR_MHZf, mhz);
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, RST_Nf, 3);
+        SOC_IF_ERROR_RETURN(WRITE_CI_PHY_CONTROLr(unit,ci,rval));
+    }
+    sal_usleep(2000);
+
+    soc_cm_debug(DK_VERBOSE, "(8) Make sure PHY AUTOINIT at strap is NOT set\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_PHY_CONTROLr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, AUTO_INITf, 0);
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, CKEf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_CI_PHY_CONTROLr(unit,ci,rval));
+    }
+    sal_usleep(2000);
+
+    soc_cm_debug(DK_VERBOSE, "(PHY1) Check Power Up Reset_Bar \n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        soc_timeout_init(&to, to_val, 0);
+        do {
+            SOC_IF_ERROR_RETURN(READ_CI_PHY_CONTROLr(unit,ci,&rval));
+            if (soc_reg_field_get(unit, CI_PHY_CONTROLr, rval, PWRUP_RSBf )) {
+                break;
+            }
+            if (soc_timeout_check(&to)) {
+                soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for DDR PHY PLL to Lock\n", ci);
+                return SOC_E_TIMEOUT;
+            }
+        } while (TRUE);
+    }
+
+
+    soc_cm_debug(DK_VERBOSE, "(PHY2) Config  and Release PLL from reset\n");
+
+
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        /* Divider */
+        SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_PLL_DIVIDERSr(unit,ci,&rval));
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,PLL_DIVIDERS,NDIV,16);
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,PLL_DIVIDERS,POST_DIV,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_PLL_DIVIDERSr(unit,ci,rval));
+        /* Reset */
+        SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_PLL_CONFIGr(unit,ci,&rval));
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,PLL_CONFIG,RESET,0);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_PLL_CONFIGr(unit,ci,rval));
+
+        SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_PLL_CONFIGr(unit,ci,&rval));
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,PLL_CONFIG,RESET,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_PLL_CONFIGr(unit,ci,rval));
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,PLL_CONFIG,RESET,0);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_PLL_CONFIGr(unit,ci,rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY3) Poll PLL Lock\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        soc_timeout_init(&to, to_val, 0);
+        do {
+            SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_PLL_STATUSr(unit,ci,&rval));
+            if (DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, PLL_STATUS, LOCK)) {
+                break;
+            }
+            if (soc_timeout_check(&to)) {
+                soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for DDR PHY PLL to Lock\n", ci);
+                return SOC_E_TIMEOUT;
+            }
+        } while (TRUE);
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY4) Calibrate ZQ (ddr40_phy_calib_zq)\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,ZQ_PVT_COMP_CTL,SAMPLE_EN,0);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_ZQ_PVT_COMP_CTLr(unit,ci,rval));
+
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,ZQ_PVT_COMP_CTL,SAMPLE_EN,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_ZQ_PVT_COMP_CTLr(unit,ci,rval));
+    }
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        soc_timeout_init(&to, to_val, 0);
+        do {
+            SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_ZQ_PVT_COMP_CTLr(unit,ci,&rval));
+            if (DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, ZQ_PVT_COMP_CTL, SAMPLE_DONE)) {
+                break;
+            }
+            if (soc_timeout_check(&to)) {
+                soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for ZQ Calibration\n", ci);
+                return SOC_E_TIMEOUT;
+            }
+        } while (TRUE);
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY4) Set Specific PD_COMP and ND_COMP and bypass Byte VDL Override\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        /* ***************************************** */
+        /* \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ */
+        if (0) { /* NAVEEN : Remove any PVT Override */
+                SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_ZQ_PVT_COMP_CTLr(unit,ci,&rval));
+                DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,ZQ_PVT_COMP_CTL,DQ_OVR_EN,1);
+                DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,ZQ_PVT_COMP_CTL,DQ_PD_OVERRIDE_VAL,2);
+                DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,ZQ_PVT_COMP_CTL,DQ_ND_OVERRIDE_VAL,3);
+                SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_ZQ_PVT_COMP_CTLr(unit,ci,rval));
+        } /* if (0) */
+        /* /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ */
+        /* ***************************************** */
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY) DDR PHY VTT On (Virtual VTT setup) DISABLE all Virtual VTT \n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        rval = 0x3f1ffff;  /* all bits except RESET and CKE */
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VIRTUAL_VTT_CONNECTIONSr(unit,ci,rval));
+
+        rval = 0; /* AGUTMANN disable VTT override , previously 0x1ffff; */    
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VIRTUAL_VTT_OVERRIDEr(unit,ci,rval));
+
+    }
+
+
+    soc_cm_debug(DK_VERBOSE, "(PHY4) DDR40_PHY_DDR3_MISC\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,DRIVE_PAD_CTL,VDDO_VOLTS,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,DRIVE_PAD_CTL,RT120B_G,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,DRIVE_PAD_CTL,RT60B,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_DRIVE_PAD_CTLr(unit,ci,rval));
+
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,DRIVE_PAD_CTL,VDDO_VOLTS,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,DRIVE_PAD_CTL,RT120B_G,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_DRIVE_PAD_CTLr(unit,ci,rval));
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_DRIVE_PAD_CTLr(unit,ci,rval));
+    }
+
+
+    if (!SAL_BOOT_QUICKTURN) {
+        uint32 rd_en_byte_mode=0, rd_en_byte_vdl_steps=0, rd_en_bit_vdl_offset=0;
+        uint32 step_size, wire_dly;
+        uint32 fixed_steps, adj_steps0, adj_steps1, bit_vdl_steps0, bit_vdl_steps1, byte_vdl_steps;
+        uint32 total_steps0, total_steps1;
+        soc_cm_debug(DK_VERBOSE, "(PHY5) VDL Calibration\n");
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+            rval = 0;
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_CALIBRATEr(unit,ci,rval));
+
+            rval = 0;
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_CALIBRATE,CALIB_FAST,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_CALIBRATE,CALIB_ONCE,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_CALIBRATE,CALIB_AUTO,1);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_CALIBRATEr(unit,ci,rval));
+        }
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+            soc_timeout_init(&to, to_val, 0);
+            do {
+                SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_VDL_CALIB_STATUSr(unit,ci,&rval));
+                if (DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_IDLE)) {
+                    break;
+                }
+                if (soc_timeout_check(&to)) {
+                    soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for VDL Calibration Idle\n", ci);
+                    return SOC_E_TIMEOUT;
+                }
+            } while (TRUE);
+            SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_VDL_CALIB_STATUSr(unit,ci,&rval));
+            if (0 == DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_LOCK)) {
+                soc_cm_debug(DK_ERR, "CI%d: VDL Calibration Did Not Lock reg=%x \n", ci, rval);
+                return SOC_E_FAIL;
+            }
+
+            soc_cm_debug(DK_VERBOSE, "VDL calibration result: 0x%0x (cal_steps = %d)\n",
+                           rval, DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_TOTAL) >> 4);
+
+            /* clear VDL calib control */
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_CALIBRATEr(unit,ci,0));
+
+        }
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+
+            SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_VDL_RD_EN_CALIB_STATUSr(unit,ci,&rval));
+            rd_en_byte_mode = DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_RD_EN_CALIB_STATUS, RD_EN_CALIB_BYTE_SEL);
+            rd_en_byte_vdl_steps = DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_RD_EN_CALIB_STATUS, RD_EN_CALIB_TOTAL) >> 4;
+            rd_en_bit_vdl_offset = DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_RD_EN_CALIB_STATUS, RD_EN_CALIB_BIT_OFFSET);
+
+            /* rval = 0;
+               SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_CALIBRATEr(unit,ci,rval));
+               DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_CALIBRATE,CALIB_STEPS,1);
+               SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_CALIBRATEr(unit,ci,rval));
+            */
+        }
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+            soc_timeout_init(&to, to_val, 0);
+            do {
+                SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_VDL_CALIB_STATUSr(unit,ci,&rval));
+                if (DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_IDLE)) {
+                    break;
+                }
+                if (soc_timeout_check(&to)) {
+                    soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for VDL Calibration Idle(1)\n", ci);
+                    return SOC_E_TIMEOUT;
+                }
+            } while (TRUE);
+            SOC_IF_ERROR_RETURN(READ_DDR40_PHY_CONTROL_REGS_VDL_CALIB_STATUSr(unit,ci,&rval));
+            if (0 == DDR40_GET_FIELD(rval,  DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_LOCK)) {
+                soc_cm_debug(DK_ERR, "CI%d: VDL Calibration Did Not Lock(1)\n", ci);
+                return SOC_E_FAIL;
+            }
+
+            step_size = ((1000 * 1000) / mhz);
+            step_size = step_size / DDR40_GET_FIELD(rval, DDR40_PHY_CONTROL_REGS, VDL_CALIB_STATUS, CALIB_TOTAL);
+
+            /* This is where the separate 'wire_dly' values are used to create per-byte-lane read enable VDL adjusts.
+               wire_dly = 0 for this sim
+            */
+            wire_dly = 0;
+            total_steps0 = ((rd_en_byte_vdl_steps << rd_en_byte_mode) + (wire_dly / step_size) + rd_en_bit_vdl_offset) ;
+            total_steps1 = ((rd_en_byte_vdl_steps << rd_en_byte_mode) + (wire_dly / step_size) + rd_en_bit_vdl_offset) ;
+            /*
+             * Compute new Read Enable VDL settings.
+             *
+             * The C0 PHY contains up to 4 VDL's on the read enable path. In normal mode, the
+             * read enable VDL path contains 3 VDL's arranged in a "byte/bit" structure. The
+             * auto-init/override modes enable the 4-VDL path (two common for each byte lane
+             * and two individual for each byte lane). This logic takes that into account when
+             * overriding the VDL settings.
+             */
+            fixed_steps = 8; /* fixed_step = 8 (byte_mode) or 24 (bit_mode) */
+            adj_steps0 = ((total_steps0 < fixed_steps) ? 0 : (total_steps0 - fixed_steps)) ;
+            adj_steps1 = ((total_steps1 < fixed_steps) ? 0 : (total_steps1 - fixed_steps)) ;
+            /*
+             * The total number of steps are being applied across 4 VDL's. The smaller 1/4
+             * is applied to the common VDL pair and the remaining 1/4 that is unique to
+             * each byte lane is applied to the byte lane specific VDL pair.
+             */
+            if (adj_steps0 < adj_steps1) {
+                byte_vdl_steps = (adj_steps0 >> 2) ;
+            } else {
+                byte_vdl_steps = (adj_steps1 >> 2) ;
+            }
+            bit_vdl_steps0 = (((adj_steps0 - (byte_vdl_steps << 1)) >> 1)) ;
+            bit_vdl_steps1 = (((adj_steps1 - (byte_vdl_steps << 1)) >> 1)) ;
+
+            rval = 0;
+            /* BYTE_VDL_STEP */
+            DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,VDL_OVRIDE_BYTE_RD_EN,OVR_EN,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,VDL_OVRIDE_BYTE_RD_EN,OVR_FORCE,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,VDL_OVRIDE_BYTE_RD_EN,OVR_STEP,byte_vdl_steps);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_VDL_OVRIDE_BYTE_RD_ENr(unit,ci,rval));
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_VDL_OVRIDE_BYTE_RD_ENr(unit,ci,rval));
+            /* BYTE0_BIT_VDL_STEP */
+            DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,VDL_OVRIDE_BYTE0_BIT_RD_EN,OVR_STEP,bit_vdl_steps0);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_VDL_OVRIDE_BYTE0_BIT_RD_ENr(unit,ci,rval));
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_VDL_OVRIDE_BYTE0_BIT_RD_ENr(unit,ci,rval));
+            /* BYTE1_BIT_VDL_STEP */
+            DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,VDL_OVRIDE_BYTE1_BIT_RD_EN,OVR_STEP,bit_vdl_steps1);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_VDL_OVRIDE_BYTE1_BIT_RD_ENr(unit,ci,rval));
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_VDL_OVRIDE_BYTE1_BIT_RD_ENr(unit,ci,rval));
+        }
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+            rval=0;
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_OVRIDE_BYTE_CTL,OVR_EN,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_OVRIDE_BYTE_CTL,BYTE_SEL,1);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_OVRIDE_BYTE_CTLr(unit,ci,rval));
+            rval=0;
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_OVRIDE_BIT_CTL,OVR_EN,1);
+            DDR40_SET_FIELD(rval,DDR40_PHY_CONTROL_REGS,VDL_OVRIDE_BIT_CTL,BYTE_SEL,1);
+            SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_CONTROL_REGS_VDL_OVRIDE_BIT_CTLr(unit,ci,rval));
+        }
+    } /* Not QUICKTURN */
+
+    soc_cm_debug(DK_VERBOSE, "(PHY6) DDR40_PHY_DDR3_MISC : Start DDR40_PHY_RDLY_ODT....\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,READ_DATA_DLY,RD_DATA_DLY,3); /* dly=(speed<=400)?1:(speed <= 667)?2:3; */
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_READ_DATA_DLYr(unit,ci,rval));
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_READ_DATA_DLYr(unit,ci,rval));
+
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,READ_CONTROL,DQ_ODT_ENABLE,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,READ_CONTROL,DQ_ODT_LE_ADJ,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,READ_CONTROL,DQ_ODT_TE_ADJ,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_READ_CONTROLr(unit,ci,rval));
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_READ_CONTROLr(unit,ci,rval));
+
+        rval = 1;
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_WR_PREAMBLE_MODEr(unit,ci,rval));
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_WR_PREAMBLE_MODEr(unit,ci,rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY7) Start ddr40_phy_autoidle_on (MEM_SYS_PARAM_PHY_AUTO_IDLE) ....\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        rval = 0;
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,IDLE_PAD_CONTROL,AUTO_DQ_IDDQ_MODE,1);
+        DDR40_SET_FIELD(rval,DDR40_PHY_WORD_LANE_0,IDLE_PAD_CONTROL,AUTO_DQ_RXENB_MODE,1);
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_0_IDLE_PAD_CONTROLr(unit,ci,rval));
+        SOC_IF_ERROR_RETURN(WRITE_DDR40_PHY_WORD_LANE_1_IDLE_PAD_CONTROLr(unit,ci,rval));
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(PHY8) Set refresh count to 7.8us\n");
+    /* Set refresh count to 7.8us (by the time it starts, it already finishes MRS and ZQCal setting) */
+    refrate = (100/98) * 1000 * (1000/mhz); /* Ref Clk Period */
+    refrate = (7700*1000/(refrate*2));
+    
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_CONFIG4r(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_CONFIG4r, &rval, REFRESH_INTERVALf, refrate);
+        SOC_IF_ERROR_RETURN(WRITE_CI_CONFIG4r(unit,ci,rval));
+    }
+    sal_usleep(2000);
+
+    soc_cm_debug(DK_VERBOSE, "(PHY9) Set CKE (clock enable)\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_PHY_CONTROLr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, AUTO_INITf, 0);
+        soc_reg_field_set(unit, CI_PHY_CONTROLr, &rval, CKEf, 0x3);
+        SOC_IF_ERROR_RETURN(WRITE_CI_PHY_CONTROLr(unit,ci,rval));
+    }
+    sal_usleep(1000);
+
+    soc_cm_debug(DK_VERBOSE, "(17) Wait for Phy Ready\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) { /* Only Even CIs */
+        soc_timeout_init(&to, to_val, 0);
+        do {
+            SOC_IF_ERROR_RETURN(READ_CI_PHY_CONTROLr(unit,ci,&rval));
+            if (soc_reg_field_get(unit, CI_PHY_CONTROLr, rval, READYf)) {
+                break;
+            }
+            if (soc_timeout_check(&to)) {
+                soc_cm_debug(DK_ERR, "CI%d: Timed out waiting for PHY Ready\n", ci);
+                return SOC_E_TIMEOUT;
+            }
+        } while (TRUE);
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(18) CI AutoInit : MR0 , MR1, MR2, and MR3 command \n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_MRS_CMDr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_MRS_CMDr, &rval, DEVICE_SELECTf, ci+1);
+        SOC_IF_ERROR_RETURN(WRITE_CI_MRS_CMDr(unit,ci,rval));
+    }
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_DDR_AUTOINITr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_DDR_AUTOINITr, &rval, DONEf, 1);
+        soc_reg_field_set(unit, CI_DDR_AUTOINITr, &rval, STARTf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_CI_DDR_AUTOINITr(unit,ci,rval));
+    }
+    sal_usleep(1000);
+
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        soc_timeout_init(&to, to_val, 0);
+        do {
+            SOC_IF_ERROR_RETURN(READ_CI_DDR_AUTOINITr(unit,ci,&rval));
+            if (soc_reg_field_get(unit, CI_DDR_AUTOINITr, rval, DONEf)) {
+                break;
+            }
+            if (soc_timeout_check(&to)) {
+                soc_cm_debug(DK_ERR, "CI%d: Timed out DDR Autoinit\n", ci);
+                return SOC_E_TIMEOUT;
+            }
+        } while (TRUE);
+    }
+
+    soc_cm_debug(DK_VERBOSE, "(19) Add some delay for TZQinit (512 DDR CLK)\n");
+    sal_usleep(5120);
+
+    soc_cm_debug(DK_VERBOSE, "DDR Controller PLL Configuration Complete\n");
+    for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+        SOC_IF_ERROR_RETURN(READ_CI_ERRORr(unit,ci,&rval));
+        soc_reg_field_set(unit, CI_ERRORr, &rval, WFIFO_CTL_CORRECTED_ERRORf, 1);
+        soc_reg_field_set(unit, CI_ERRORr, &rval, WFIFO_CTL_UNCORRECTED_ERRORf, 1);
+        soc_reg_field_set(unit, CI_ERRORr, &rval, RFIFO_CTL_CORRECTED_ERRORf, 1);
+        soc_reg_field_set(unit, CI_ERRORr, &rval, RFIFO_CTL_UNCORRECTED_ERRORf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_CI_ERRORr(unit,ci,rval));
+    }
+
+    if (soc_property_get(unit, spn_DDR3_AUTO_TUNE, FALSE)) {
+        /* Run Shmoo */
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci+=2) {
+            preset_value = 0;
+            for(type = 0; type < SHMOO_WR_DM; type++) {
+                for ( wl = 0; wl < 2; wl++ ) {
+                    if ((ci == 2) && (wl == 1)) {
+                        continue;
+                    }
+                    soc_ddr40_shmoo_get_init_step(unit, ci, wl, type, init_step);
+                    /* soc_ddr40_shmoo_do(unit,ci,wl,type,preset_value,0,result,init_step,use_addr,dq_addr,dq_burst,dq_iter,use_dq,dq_data0,dq_data0_alt); */
+                    soc_ddr40_shmoo_do(unit,ci,wl,type,preset_value,0,result,init_step,0,0,0,0,0,0,0);
+                    soc_ddr40_shmoo_calib(unit,ci,type,result,init_step,new_step);
+                    soc_ddr40_shmoo_set_new_step(unit, ci, wl, type, new_step);
+                }
+            }
+            soc_cm_debug(DK_VERBOSE, "DDR Tuning Complete\n");
+        }
+    } else {
+        for (ci = 0; ci < SOC_DDR3_NUM_MEMORIES(unit); ci++) {
+            soc_cm_debug(DK_VERBOSE, "Restoring DDR Tuning Values (If Present)\n");
+            /* Restore RD_EN Shmoo Values */
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_RD_EN, 0x80);
+            if (cfg1 != 0x80) {
+                new_step[0] = (cfg1 & 0xff);
+                new_step[1] = ((cfg1 >> 8) & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 0, SHMOO_RD_EN, new_step);  /* WL 0 */
+                if (ci != 2) {
+                    /* No WL1 for ci2 */
+                    new_step[0] = ((cfg1 >> 16) & 0xff);
+                    new_step[1] = ((cfg1 >> 24) & 0xff);
+                    soc_ddr40_shmoo_set_new_step(unit, ci, 1, SHMOO_RD_EN, new_step);
+                }
+            }
+
+            /* Restore RD_DQS Shmoo Values */
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_RD_DQS_B0_0_3, 0x80);
+            cfg2 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_RD_DQS_B0_4_7, 0x80);
+            cfg3 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_RD_DQS_B1_0_3, 0x80);
+            cfg4 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_RD_DQS_B1_4_7, 0x80);
+            if ((cfg1 != 0x80) && (cfg2 != 0x80) && (cfg3 != 0x80) && (cfg2 != 0x80)) {
+                 /* WL 0 */
+                new_step[0] = (cfg1 & 0xff);
+                new_step[1] = ((cfg1 >> 8) & 0xff);
+                new_step[2] = ((cfg1 >> 16) & 0xff);
+                new_step[3] = ((cfg1 >> 24) & 0xff);
+                new_step[4] = (cfg2 & 0xff);
+                new_step[5] = ((cfg2 >> 8) & 0xff);
+                new_step[6] = ((cfg2 >> 16) & 0xff);
+                new_step[7] = ((cfg2 >> 24) & 0xff);
+                new_step[8] = (cfg3 & 0xff);
+                new_step[9] = ((cfg3 >> 8) & 0xff);
+                new_step[10] = ((cfg3 >> 16) & 0xff);
+                new_step[11] = ((cfg3 >> 24) & 0xff);
+                new_step[12] = (cfg4 & 0xff);
+                new_step[13] = ((cfg4 >> 8) & 0xff);
+                new_step[14] = ((cfg4 >> 16) & 0xff);
+                new_step[15] = ((cfg4 >> 24) & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 0, SHMOO_RD_DQ, new_step);
+            }
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_RD_DQS_B0_0_3, 0x80);
+            cfg2 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_RD_DQS_B0_4_7, 0x80);
+            cfg3 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_RD_DQS_B1_0_3, 0x80);
+            cfg4 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_RD_DQS_B1_4_7, 0x80);
+            if ((cfg1 != 0x80) && (cfg2 != 0x80) && (cfg3 != 0x80) && (cfg2 != 0x80) && (ci != 2)) {
+                 /* WL 1 : No WL1 for ci2 */
+                new_step[0] = (cfg1 & 0xff);
+                new_step[1] = ((cfg1 >> 8) & 0xff);
+                new_step[2] = ((cfg1 >> 16) & 0xff);
+                new_step[3] = ((cfg1 >> 24) & 0xff);
+                new_step[4] = (cfg2 & 0xff);
+                new_step[5] = ((cfg2 >> 8) & 0xff);
+                new_step[6] = ((cfg2 >> 16) & 0xff);
+                new_step[7] = ((cfg2 >> 24) & 0xff);
+                new_step[8] = (cfg3 & 0xff);
+                new_step[9] = ((cfg3 >> 8) & 0xff);
+                new_step[10] = ((cfg3 >> 16) & 0xff);
+                new_step[11] = ((cfg3 >> 24) & 0xff);
+                new_step[12] = (cfg4 & 0xff);
+                new_step[13] = ((cfg4 >> 8) & 0xff);
+                new_step[14] = ((cfg4 >> 16) & 0xff);
+                new_step[15] = ((cfg4 >> 24) & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 1, SHMOO_RD_DQ, new_step);
+            }
+
+            /* Restore WR_DQ Shmoo Values */
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_WR_DQ_B0_0_3, 0x80);
+            cfg2 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_WR_DQ_B0_4_7, 0x80);
+            cfg3 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_WR_DQ_B1_0_3, 0x80);
+            cfg4 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL0_WR_DQ_B1_4_7, 0x80);
+            if ((cfg1 != 0x80) && (cfg2 != 0x80) && (cfg3 != 0x80) && (cfg2 != 0x80)) {
+                 /* WL 0 */
+                new_step[0] = (cfg1 & 0xff);
+                new_step[1] = ((cfg1 >> 8) & 0xff);
+                new_step[2] = ((cfg1 >> 16) & 0xff);
+                new_step[3] = ((cfg1 >> 24) & 0xff);
+                new_step[4] = (cfg2 & 0xff);
+                new_step[5] = ((cfg2 >> 8) & 0xff);
+                new_step[6] = ((cfg2 >> 16) & 0xff);
+                new_step[7] = ((cfg2 >> 24) & 0xff);
+                new_step[8] = (cfg3 & 0xff);
+                new_step[9] = ((cfg3 >> 8) & 0xff);
+                new_step[10] = ((cfg3 >> 16) & 0xff);
+                new_step[11] = ((cfg3 >> 24) & 0xff);
+                new_step[12] = (cfg4 & 0xff);
+                new_step[13] = ((cfg4 >> 8) & 0xff);
+                new_step[14] = ((cfg4 >> 16) & 0xff);
+                new_step[15] = ((cfg4 >> 24) & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 0, SHMOO_WR_DQ, new_step);
+            }
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_WR_DQ_B0_0_3, 0x80);
+            cfg2 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_WR_DQ_B0_4_7, 0x80);
+            cfg3 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_WR_DQ_B1_0_3, 0x80);
+            cfg4 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_WL1_WR_DQ_B1_4_7, 0x80);
+            if ((cfg1 != 0x80) && (cfg2 != 0x80) && (cfg3 != 0x80) && (cfg2 != 0x80) && (ci != 2)) {
+                 /* WL 1 : No WL1 for ci2 */
+                new_step[0] = (cfg1 & 0xff);
+                new_step[1] = ((cfg1 >> 8) & 0xff);
+                new_step[2] = ((cfg1 >> 16) & 0xff);
+                new_step[3] = ((cfg1 >> 24) & 0xff);
+                new_step[4] = (cfg2 & 0xff);
+                new_step[5] = ((cfg2 >> 8) & 0xff);
+                new_step[6] = ((cfg2 >> 16) & 0xff);
+                new_step[7] = ((cfg2 >> 24) & 0xff);
+                new_step[8] = (cfg3 & 0xff);
+                new_step[9] = ((cfg3 >> 8) & 0xff);
+                new_step[10] = ((cfg3 >> 16) & 0xff);
+                new_step[11] = ((cfg3 >> 24) & 0xff);
+                new_step[12] = (cfg4 & 0xff);
+                new_step[13] = ((cfg4 >> 8) & 0xff);
+                new_step[14] = ((cfg4 >> 16) & 0xff);
+                new_step[15] = ((cfg4 >> 24) & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 1, SHMOO_WR_DQ, new_step);
+            }
+
+            cfg1 = soc_property_ci_get(unit, ci, spn_DDR3_TUNE_ADDRC, 0x80);
+            if (cfg1 != 0x80) {
+                new_step[0] = (cfg1 & 0xff);
+                soc_ddr40_shmoo_set_new_step(unit, ci, 0, SHMOO_ADDRC, new_step);
+                if (ci != 2) {
+                    /* No WL1 for ci2 */
+                    new_step[0] = ((cfg1 >> 8) & 0xff);
+                    soc_ddr40_shmoo_set_new_step(unit, ci, 1, SHMOO_ADDRC, new_step);
+                }
+            }
+        }
+    }
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_misc_init(int unit)
+{
+    static const soc_field_t port_field[4] = {
+        PORT0f, PORT1f, PORT2f, PORT3f
+    };
+    soc_info_t *si;
+    uint32 rval, rval1;
+    uint32 entry[SOC_MAX_MEM_WORDS];
+    soc_pbmp_t pbmp;
+    int port, blk_port, blk, pindex;
+    int count;
+    uint64 reg64;
+    uint16 dev_id;
+    uint8 rev_id;
+    int i;
+    mmu_ipmc_group_tbl0_entry_t ipmc_entry;
+    mmu_rqe_queue_op_node_map_entry_t rqe_entry;
+    mmu_wred_queue_op_node_map_entry_t wred_entry;
+    mmu_ext_mc_group_map_entry_t mc_group_entry;
+    mmu_ext_mc_queue_list0_entry_t mc_list0_entry;
+    mmu_ext_mc_queue_list1_entry_t mc_list1_entry;
+    mmu_ext_mc_queue_list4_entry_t mc_list4_entry;
+
+    soc_cm_get_id(unit, &dev_id, &rev_id);
+
+    si = &SOC_INFO(unit);
+
+    if (!SOC_IS_RELOADING(unit) && !SOC_WARM_BOOT(unit)) {
+        /* Clear IPIPE/EIPIE Memories */
+        SOC_IF_ERROR_RETURN(soc_katana_pipe_mem_clear(unit));
+    }
+
+    /* Some registers are implemented in memory, need to clear them in order
+     * to have correct parity value */
+    PBMP_ALL_ITER(unit, port) {
+        SOC_IF_ERROR_RETURN(WRITE_EGR_VLAN_CONTROL_1r(unit, port, 0));
+        SOC_IF_ERROR_RETURN(WRITE_EGR_IPMC_CFG2r(unit, port, 0));
+    }
+
+    /* default DDR3 Configuration */
+    /* 16k Col * 1k Row * 8 Banks * 16 bits = 2Gb */
+#if 0 /* Katana Only supports 1k Cols and 8 banks */
+    SOC_DDR3_NUM_COLUMNS(unit) = soc_property_get(unit,spn_EXT_RAM_COLUMNS, 1024);
+    SOC_DDR3_NUM_BANKS(unit) = soc_property_get(unit,spn_EXT_RAM_BANKS, 8);
+#else
+    SOC_DDR3_NUM_COLUMNS(unit) = 1024;
+    SOC_DDR3_NUM_BANKS(unit) = 8;
+#endif
+    SOC_DDR3_NUM_MEMORIES(unit) = soc_property_get(unit,spn_EXT_RAM_PRESENT, 3);
+    SOC_DDR3_NUM_ROWS(unit) = soc_property_get(unit,spn_EXT_RAM_ROWS, 8192);
+    SOC_DDR3_CLOCK_MHZ(unit) = soc_property_get(unit, spn_DDR3_CLOCK_MHZ, 800);
+    SOC_DDR3_MEM_GRADE(unit) = soc_property_get(unit, spn_DDR3_MEM_GRADE, 0x111111);
+
+    if (soc_feature(unit, soc_feature_ddr3)) {
+        _soc_katana_ci_init(unit);
+    }
+
+    /* Reset MXQPORT MIB counter (registers implemented in memory) */
+    SOC_BLOCK_ITER(unit, blk, SOC_BLK_MXQPORT) {
+        blk_port = SOC_BLOCK_PORT(unit, blk);
+        if (blk_port < 0) {
+            continue;
+        }
+        rval = 0;
+        soc_reg_field_set(unit, XPORT_MIB_RESETr, &rval, CLR_CNTf, 0xf); /* All Ports */
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MIB_RESETr(unit, blk_port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MIB_RESETr(unit, blk_port, 0));
+    }
+
+    if (soc_property_get(unit, spn_PARITY_ENABLE, TRUE)) {
+        _soc_katana_parity_enable_all(unit, TRUE);
+    }
+
+    /* Egress Logical to physical port map.
+       For KT logical-port and physical-port are the same */
+    PBMP_ALL_ITER(unit, port) {
+        rval = 0;
+        soc_reg_field_set(unit, EGR_VLAN_LOGICAL_TO_PHYSICAL_MAPPINGr, &rval,
+                          PHYSICAL_PORT_NUMf, port);
+        SOC_IF_ERROR_RETURN
+            (WRITE_EGR_VLAN_LOGICAL_TO_PHYSICAL_MAPPINGr(unit, port, rval));
+    }
+
+    sal_memset(entry, 0, sizeof(cpu_pbm_entry_t));
+    soc_mem_pbmp_field_set(unit, CPU_PBMm, entry, BITMAPf, &PBMP_CMIC(unit));
+    SOC_IF_ERROR_RETURN
+        (soc_mem_write(unit, CPU_PBMm, MEM_BLOCK_ALL, 0, entry));
+
+    sal_memset(entry, 0, sizeof(cpu_pbm_2_entry_t));
+    soc_mem_pbmp_field_set(unit, CPU_PBM_2m, entry, BITMAPf, &PBMP_CMIC(unit));
+    SOC_IF_ERROR_RETURN
+        (soc_mem_write(unit, CPU_PBM_2m, MEM_BLOCK_ALL, 0, entry));
+
+    SOC_PBMP_CLEAR(pbmp);
+    PBMP_ALL_ITER(unit, port) {
+        if (IS_LB_PORT(unit, port) ||
+            (si->port_group[port] >= 2 && si->port_group[port] <= 3)) {
+            SOC_PBMP_PORT_ADD(pbmp, port);
+        }
+    }
+
+    sal_memset(entry, 0, sizeof(egr_ing_port_entry_t));
+    soc_mem_field32_set(unit, EGR_ING_PORTm, entry, PORT_TYPEf, 1);
+    PBMP_HG_ITER(unit, port) {
+        SOC_IF_ERROR_RETURN
+            (soc_reg_field32_modify(unit, XPORT_CONFIGr, port, HIGIG_MODEf,
+                                    1));
+        SOC_IF_ERROR_RETURN
+            (soc_mem_write(unit, EGR_ING_PORTm, MEM_BLOCK_ALL, port, entry));
+    }
+    SOC_IF_ERROR_RETURN
+        (soc_mem_write(unit, EGR_ING_PORTm, MEM_BLOCK_ALL, si->cpu_hg_index,
+                       entry));
+    soc_mem_field32_set(unit, EGR_ING_PORTm, entry, PORT_TYPEf, 2);
+    SOC_IF_ERROR_RETURN
+        (soc_mem_write(unit, EGR_ING_PORTm, MEM_BLOCK_ALL, LB_PORT(unit),
+                       entry));
+
+    /* MXQPORT0 - 25 : No Quad port mode */
+    rval = 0;
+    rval1 = 0;
+    soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                      PORT0f, 1); /* Enable 1 port */
+    if (SOC_PORT_VALID(unit, 25)) {
+        if (si->port_speed_max[25] < 10000) {
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PHY_PORT_MODEf, 2);
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PORT_GMII_MII_ENABLEf, 1);
+        }
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MODE_REGr(unit, 25, rval));
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_PORT_ENABLEr(unit, 25, rval1));
+    }
+
+    /* MXQPORT1 - 26 : No Quad port mode */
+    rval = 0;
+    rval1 = 0;
+    soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                      PORT0f, 1); /* Enable 1 port */
+    if (SOC_PORT_VALID(unit, 26)) {
+        if (si->port_speed_max[26] < 10000) {
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PHY_PORT_MODEf, 2);
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PORT_GMII_MII_ENABLEf, 1);
+        }
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MODE_REGr(unit, 26, rval));
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_PORT_ENABLEr(unit, 26, rval1));
+    }
+
+    /* MXQPORT2 = 27,32,33,34 */
+    rval1 = 0;
+    soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                      PORT0f, 1);
+    if (SOC_PORT_VALID(unit, 27)) {
+        if (SOC_PORT_VALID(unit, 32) || SOC_PORT_VALID(unit, 33)
+            || SOC_PORT_VALID(unit, 34)) {  /* quad port mode*/
+
+            SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &rval));
+            soc_reg_field_set(unit, MISCCONFIGr, &rval, XPORT2_MULTI_PORTf, 1);
+            SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+
+            rval = 0;
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                CORE_PORT_MODEf, 2);
+
+            for (pindex = 0; pindex < 4; pindex++) {
+                soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                                  port_field[pindex], 1);
+            }
+        }
+        if (si->port_speed_max[27] < 10000) {
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PHY_PORT_MODEf, 2);
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PORT_GMII_MII_ENABLEf, 1);
+        }
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MODE_REGr(unit, 27, rval));
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_PORT_ENABLEr(unit, 27, rval1));
+    }
+
+    /* MXQPORT3 = 28,29,30,31 */
+    rval1 = 0;
+    soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                      PORT0f, 1);
+    if (SOC_PORT_VALID(unit, 28)) {
+        if (SOC_PORT_VALID(unit, 29) || SOC_PORT_VALID(unit, 30)
+            || SOC_PORT_VALID(unit, 31)) {  /* quad port mode*/
+
+            SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &rval));
+            soc_reg_field_set(unit, MISCCONFIGr, &rval, XPORT3_MULTI_PORTf, 1);
+            SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+
+            rval = 0;
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                CORE_PORT_MODEf, 2);
+
+            for (pindex = 0; pindex < 4; pindex++) {
+                soc_reg_field_set(unit, XPORT_PORT_ENABLEr, &rval1,
+                                  port_field[pindex], 1);
+            }
+        }
+        if (si->port_speed_max[28] < 10000) {
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PHY_PORT_MODEf, 2);
+            soc_reg_field_set(unit, XPORT_MODE_REGr, &rval,
+                                PORT_GMII_MII_ENABLEf, 1);
+        }
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_MODE_REGr(unit, 28, rval));
+        SOC_IF_ERROR_RETURN(WRITE_XPORT_PORT_ENABLEr(unit, 28, rval1));
+    }
+
+    count = 32;
+
+    /* Setup main TDM control */
+    SOC_IF_ERROR_RETURN(READ_IARB_TDM_CONTROLr(unit, &rval));
+    /* BCMSIM handles Single Cell packets */
+    if (SAL_BOOT_BCMSIM) {
+        soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, DISABLEf, 1);
+    } else {
+        soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, DISABLEf, 0);
+    }
+    soc_reg_field_set(unit, IARB_TDM_CONTROLr, &rval, TDM_WRAP_PTRf, count);
+    SOC_IF_ERROR_RETURN(WRITE_IARB_TDM_CONTROLr(unit, rval));
+
+	_soc_katana_perq_flex_counters_init(unit);
+	
+    SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &rval));
+    soc_reg_field_set(unit, MISCCONFIGr, &rval, METERING_CLK_ENf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+
+    if (0) { 
+        rval = 0;
+        soc_reg_field_set(unit, ING_BYPASS_CTRLr, &rval, IFP_BYPASS_ENABLEf,
+                          1);
+        SOC_IF_ERROR_RETURN(WRITE_ING_BYPASS_CTRLr(unit, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, EGR_BYPASS_CTRLr, &rval, EFP_BYPASSf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_EGR_BYPASS_CTRLr(unit, rval));
+    }
+
+    /*
+     * IPMC init 
+     */
+    SOC_IF_ERROR_RETURN(READ_RQE_GLOBAL_CONFIGr(unit, &rval));
+    soc_reg_field_set(unit,RQE_GLOBAL_CONFIGr, &rval, PARITY_GEN_ENf,
+                      1);
+    soc_reg_field_set(unit,RQE_GLOBAL_CONFIGr, &rval, PARITY_CHK_ENf,
+                      1);
+    SOC_IF_ERROR_RETURN(WRITE_RQE_GLOBAL_CONFIGr(unit, rval));
+
+    sal_memset(&ipmc_entry, 0, sizeof(mmu_ipmc_group_tbl0_entry_t));
+    count = soc_mem_index_count(unit, MMU_IPMC_GROUP_TBL0m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_IPMC_GROUP_TBL0m(unit,
+                            MEM_BLOCK_ANY, i, &ipmc_entry));
+    }
+    count = soc_mem_index_count(unit, MMU_IPMC_GROUP_TBL1m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_IPMC_GROUP_TBL1m(unit,
+                            MEM_BLOCK_ANY, i, &ipmc_entry));
+    }
+    count = soc_mem_index_count(unit, MMU_IPMC_GROUP_TBL2m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_IPMC_GROUP_TBL2m(unit,
+                            MEM_BLOCK_ANY, i, &ipmc_entry));
+    }
+    count = soc_mem_index_count(unit, MMU_IPMC_GROUP_TBL3m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_IPMC_GROUP_TBL3m(unit,
+                            MEM_BLOCK_ANY, i, &ipmc_entry));
+    }
+    count = soc_mem_index_count(unit, MMU_IPMC_GROUP_TBL4m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_IPMC_GROUP_TBL4m(unit,
+                            MEM_BLOCK_ANY, i, &ipmc_entry));
+    } 
+
+    sal_memset(&rqe_entry, 0, sizeof(mmu_rqe_queue_op_node_map_entry_t));
+    count = soc_mem_index_count(unit, MMU_RQE_QUEUE_OP_NODE_MAPm);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_RQE_QUEUE_OP_NODE_MAPm(unit,
+                            MEM_BLOCK_ANY, i, &rqe_entry));
+    }
+	
+    sal_memset(&wred_entry, 0, sizeof(mmu_wred_queue_op_node_map_entry_t));
+    count = soc_mem_index_count(unit, MMU_WRED_QUEUE_OP_NODE_MAPm);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_WRED_QUEUE_OP_NODE_MAPm(unit,
+                            MEM_BLOCK_ANY, i, &wred_entry));
+    }
+
+    sal_memset(&mc_group_entry, 0, sizeof(mmu_ext_mc_group_map_entry_t));
+    count = soc_mem_index_count(unit, MMU_EXT_MC_GROUP_MAPm);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_EXT_MC_GROUP_MAPm(unit,
+                            MEM_BLOCK_ANY, i, &mc_group_entry));
+    }
+
+    sal_memset(&mc_list0_entry, 0, sizeof(mmu_ext_mc_queue_list0_entry_t));
+    count = soc_mem_index_count(unit, MMU_EXT_MC_QUEUE_LIST0m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_EXT_MC_QUEUE_LIST0m(unit,
+                            MEM_BLOCK_ANY, i, &mc_list0_entry));
+    }
+
+    sal_memset(&mc_list1_entry, 0, sizeof(mmu_ext_mc_queue_list1_entry_t));
+    count = soc_mem_index_count(unit, MMU_EXT_MC_QUEUE_LIST1m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_EXT_MC_QUEUE_LIST1m(unit,
+                            MEM_BLOCK_ANY, i, &mc_list1_entry));
+    }
+
+    sal_memset(&mc_list4_entry, 0, sizeof(mmu_ext_mc_queue_list4_entry_t));
+    count = soc_mem_index_count(unit, MMU_EXT_MC_QUEUE_LIST4m);
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_EXT_MC_QUEUE_LIST4m(unit,
+                            MEM_BLOCK_ANY, i, &mc_list4_entry));
+    }
+    	
+    /*
+     * Egress Enable
+     */
+    sal_memset(entry, 0, sizeof(egr_enable_entry_t));
+    soc_mem_field32_set(unit, EGR_ENABLEm, entry, PRT_ENABLEf, 1);
+    PBMP_ALL_ITER(unit, port) {
+        SOC_IF_ERROR_RETURN
+            (WRITE_EGR_ENABLEm(unit, MEM_BLOCK_ALL, port, entry));
+    }
+
+    /* GMAC init should be moved to mac */
+    rval = 0;
+    soc_reg_field_set(unit, GPORT_CONFIGr, &rval, CLR_CNTf, 1);
+    soc_reg_field_set(unit, GPORT_CONFIGr, &rval, GPORT_ENf, 1);
+    PBMP_E_ITER(unit, port) {
+        if (IS_MXQ_PORT(unit, port)) {
+            continue;
+        }
+        SOC_IF_ERROR_RETURN(WRITE_GPORT_CONFIGr(unit, port, rval));
+    }
+    soc_reg_field_set(unit, GPORT_CONFIGr, &rval, CLR_CNTf, 0);
+    PBMP_E_ITER(unit, port) {
+        if (IS_MXQ_PORT(unit, port)) {
+            continue;
+        }
+        SOC_IF_ERROR_RETURN(WRITE_GPORT_CONFIGr(unit, port, rval));
+    }
+
+    sal_memset(entry, 0, sizeof(epc_link_bmap_entry_t));
+    soc_mem_pbmp_field_set(unit, EPC_LINK_BMAPm, entry, PORT_BITMAPf,
+                           &PBMP_CMIC(unit));
+    SOC_IF_ERROR_RETURN(WRITE_EPC_LINK_BMAPm(unit, MEM_BLOCK_ALL, 0, entry));
+
+    SOC_IF_ERROR_RETURN(READ_ING_CONFIG_64r(unit, &reg64));
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          L3SRC_HIT_ENABLEf, 1);
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          L2DST_HIT_ENABLEf, 1);
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          APPLY_EGR_MASK_ON_L2f, 1);
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          APPLY_EGR_MASK_ON_L3f, 1);
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          ARP_RARP_TO_FPf, 0x3); /* enable both ARP & RARP */
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          ARP_VALIDATION_ENf, 1);
+    soc_reg64_field32_set(unit, ING_CONFIG_64r, &reg64,
+                          IGNORE_HG_HDR_LAG_FAILOVERf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_ING_CONFIG_64r(unit, reg64));
+
+
+    /* The HW defaults for EGR_VLAN_CONTROL_1.VT_MISS_UNTAG == 1, which
+     * causes the outer tag to be removed from packets that don't have
+     * a hit in the egress vlan tranlation table. Set to 0 to disable this.
+     */
+    rval = 0;
+    soc_reg_field_set(unit, EGR_VLAN_CONTROL_1r, &rval, VT_MISS_UNTAGf, 0);
+
+    /* Enable pri/cfi remarking on egress ports. */
+    soc_reg_field_set(unit, EGR_VLAN_CONTROL_1r, &rval, REMARK_OUTER_DOT1Pf,
+                      1);
+    PBMP_ALL_ITER(unit, port) {
+        SOC_IF_ERROR_RETURN(WRITE_EGR_VLAN_CONTROL_1r(unit, port, rval));
+    }
+
+    SOC_PBMP_ASSIGN(pbmp, PBMP_ALL(unit));
+    SOC_PBMP_REMOVE(pbmp, PBMP_LB(unit));
+    SOC_IF_ERROR_RETURN(soc_mem_read(unit, ING_EN_EFILTER_BITMAPm,
+                                     MEM_BLOCK_ANY, 0, &entry));
+    soc_mem_pbmp_field_set(unit, ING_EN_EFILTER_BITMAPm, &entry, BITMAPf,
+                           &pbmp);
+    SOC_IF_ERROR_RETURN(soc_mem_write(unit, ING_EN_EFILTER_BITMAPm,
+                                      MEM_BLOCK_ANY, 0, &entry));
+
+    SOC_IF_ERROR_RETURN(READ_CMIC_TXBUF_CONFIGr(unit, &rval));
+    soc_reg_field_set(unit, CMIC_TXBUF_CONFIGr, &rval,
+                            FIRST_SERVE_BUFFERS_WITH_EOP_CELLSf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_CMIC_TXBUF_CONFIGr(unit, rval));
+
+#ifdef _KATANA_DEBUG
+    /* Multicast range initialization */
+    SOC_IF_ERROR_RETURN
+        (soc_hbx_higig2_mcast_sizes_set(unit,
+             soc_property_get(unit, spn_HIGIG2_MULTICAST_VLAN_RANGE,
+                              SOC_HBX_MULTICAST_RANGE_DEFAULT),
+             soc_property_get(unit, spn_HIGIG2_MULTICAST_L2_RANGE,
+                              SOC_HBX_MULTICAST_RANGE_DEFAULT),
+             soc_property_get(unit, spn_HIGIG2_MULTICAST_L3_RANGE,
+                              SOC_HBX_MULTICAST_RANGE_DEFAULT)));
+    SOC_IF_ERROR_RETURN
+        (soc_hbx_mcast_size_set(unit, soc_property_get(unit,
+             spn_MULTICAST_L2_RANGE, SOC_HBX_MULTICAST_RANGE_DEFAULT)));
+    SOC_IF_ERROR_RETURN
+        (soc_hbx_ipmc_size_set(unit, soc_property_get(unit,
+             spn_MULTICAST_L3_RANGE, soc_mem_index_count(unit, L3_IPMCm))));
+
+    /* initialize LED UP0 and LED UP1 */
+    SOC_IF_ERROR_RETURN(_katana_ledup_init(unit));
+#endif
+
+    if (soc_mspi_init(unit) != SOC_E_NONE) {
+        soc_cm_debug(DK_WARN, "unit %d : MSPI Init Failed\n", unit);
+    }
+
+    if (soc_feature(unit, soc_feature_ces)) {
+	/*
+	 * Add CES TDM ports
+	 */
+	for (i = 0;i < 16;i++) {
+	    int port = 39 + i;
+	    SOC_PBMP_PORT_ADD(si->tdm_pbm, port);
+	    si->tdm.port[si->tdm.num++] = port;
+	    if (si->tdm.min > port || si->tdm.min < 0) {
+		si->tdm.min = port;
+	    }
+	    if (si->tdm.max < port) {
+		si->tdm.max = port;
+	    }
+	    SOC_PBMP_PORT_ADD(si->tdm.bitmap, port);
+	}
+    }
+
+    return SOC_E_NONE;
+}
+
+#define KA_MMU_EFIFO_DEPTH             10
+#define KA_MMU_EFIFO_XMIT_THERESHOLD   4
+
+STATIC int
+_soc_katana_mmu_init(int unit)
+{
+    uint32 rval, nxtaddr;
+    uint64 r64val;
+    int                 port, mmu_init_usec, i;
+    soc_timeout_t       to;
+    uint32 entry[SOC_MAX_MEM_WORDS];
+    mmu_aging_lmt_int_entry_t age_entry;
+    int count;
+    uint16 dev_id;
+    uint8 rev_id;
+    soc_info_t *si;
+	uint32 port_cfg0, port_cfg1;
+
+    soc_cm_get_id(unit, &dev_id, &rev_id);
+
+    si = &SOC_INFO(unit);
+
+    /* Init Link List Scheduler */
+    rval = 0;
+    soc_reg_field_set(unit, LLS_SOFT_RESETr, &rval, SOFT_RESETf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_SOFT_RESETr(unit, rval));
+
+    rval = 0;
+    soc_reg_field_set(unit, LLS_INITr, &rval, INITf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_INITr(unit, rval));
+
+    /* Wait for LLS init done. */
+    if (SAL_BOOT_SIMULATION) {
+        mmu_init_usec = 10000000; /* Simulation  .. 10sec */
+    } else {
+        mmu_init_usec = 50000;
+    }
+    soc_timeout_init(&to, mmu_init_usec, 0);
+    do {
+        SOC_IF_ERROR_RETURN(READ_LLS_INITr(unit, &rval));
+        if (soc_reg_field_get(unit, LLS_INITr, rval, INIT_DONEf)) {
+            break;
+        }
+        if (soc_timeout_check(&to)) {
+            soc_cm_debug(DK_WARN, "unit %d : LLS INIT timeout\n", unit);
+            break;
+        }
+    } while (TRUE);
+
+    /* Setup TDM for MMU Arb & LLS */
+    _soc_katana_mmu_tdm_init(unit);
+
+    for(i=0; i<16; i++) {
+        SOC_IF_ERROR_RETURN(READ_TOQ_EXT_MEM_BW_MAP_TABLEr(unit, i, &rval));
+        
+        soc_reg_field_set(unit, TOQ_EXT_MEM_BW_MAP_TABLEr, &rval,
+                                            GBL_GUARENTEE_BW_LIMITf, 1450);
+        soc_reg_field_set(unit, TOQ_EXT_MEM_BW_MAP_TABLEr, &rval,
+                                            WR_PHASEf, 120);
+        soc_reg_field_set(unit, TOQ_EXT_MEM_BW_MAP_TABLEr, &rval,
+                                            RD_PHASEf, 120);
+        SOC_IF_ERROR_RETURN(
+            WRITE_TOQ_EXT_MEM_BW_MAP_TABLEr(unit,i,rval));
+    }
+    SOC_IF_ERROR_RETURN(READ_TOQ_EXT_MEM_BW_TIMER_CFGr(unit, &rval));
+    soc_reg_field_set(unit, TOQ_EXT_MEM_BW_TIMER_CFGr, &rval, MIDPKT_SHAPE_ENABLEf,0);
+    SOC_IF_ERROR_RETURN(WRITE_TOQ_EXT_MEM_BW_TIMER_CFGr(unit, rval));
+
+    nxtaddr = 0;
+	port_cfg0 = port_cfg1 = 0;
+	
+    PBMP_ALL_ITER(unit, port) {
+        /* Configure Egress Fifo */
+        rval = 0;
+        soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_START_ADDRESSf,
+                                                        nxtaddr);
+        if (IS_EXT_MEM_PORT(unit, port)) {
+            if (si->port_speed_max[port] >= 10000) {
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_XMIT_THRESHOLDf, 35);
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_DEPTHf, 60);
+                nxtaddr += 60;
+            } else if (si->port_speed_max[port] == 2500) {
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_XMIT_THRESHOLDf, 20);
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_DEPTHf, 28);
+                nxtaddr += 28;
+            } else {
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_XMIT_THRESHOLDf, 8);
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_DEPTHf, 11);
+                nxtaddr += 11;
+            }
+            if (port <= 31) { 
+                port_cfg0 |= (1 << port);
+            } else {
+                port_cfg1 |= (1 << (port - 32));
+            }
+        } else {
+            soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_XMIT_THRESHOLDf, 1);
+            if ((dev_id == BCM56440_DEVICE_ID) || (dev_id == BCM56444_DEVICE_ID) ||
+                (dev_id == BCM56445_DEVICE_ID) || (dev_id == BCM56448_DEVICE_ID)) { /* 133MHz */
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_DEPTHf,
+                                                  (si->port_speed_max[port] >= 10000) ? 6 : 2);
+                nxtaddr += ((si->port_speed_max[port] >= 10000) ? 6 : 2);
+            } else { /* 90MHz */
+                soc_reg_field_set(unit, DEQ_EFIFO_CFGr, &rval, EGRESS_FIFO_DEPTHf,
+                                                  (si->port_speed_max[port] >= 10000) ? 9 : 3);
+                nxtaddr += ((si->port_speed_max[port] >= 10000) ? 9 : 3);
+            }
+        }
+        SOC_IF_ERROR_RETURN(WRITE_DEQ_EFIFO_CFGr(unit, port, rval));
+        
+        SOC_IF_ERROR_RETURN(WRITE_DEST_PORT_CFG_0r(unit, port_cfg0));
+        SOC_IF_ERROR_RETURN(WRITE_DEST_PORT_CFG_1r(unit, port_cfg1));
+    
+        /* Port BW Ctrl */
+        SOC_IF_ERROR_RETURN(READ_TOQ_PORT_BW_CTRLr(unit, port, &rval));
+        if (IS_CPU_PORT(unit,port) || IS_LB_PORT(unit,port)) {
+            if (dev_id == BCM56443_DEVICE_ID) { /* And all other 2.5G variants */
+                soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, PORT_BWf, 125);
+            } else {
+                soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, PORT_BWf, 50);
+            }
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, START_THRESHOLDf, 127);
+        } else if (si->port_speed_max[port] >= 10000) {
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, PORT_BWf, 500);
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, START_THRESHOLDf, 34);
+        } else if (si->port_speed_max[port] == 2500) {
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, PORT_BWf, 125);
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, START_THRESHOLDf, 19);
+        } else {
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, PORT_BWf, 50);
+            soc_reg_field_set(unit, TOQ_PORT_BW_CTRLr, &rval, START_THRESHOLDf, 7);
+        }
+        SOC_IF_ERROR_RETURN(WRITE_TOQ_PORT_BW_CTRLr(unit, port, rval));
+    }
+    rval = 0;
+    soc_reg_field_set(unit, DEQ_EFIFO_CFG_COMPLETEr, &rval, EGRESS_FIFO_CONFIGURATION_COMPLETEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_DEQ_EFIFO_CFG_COMPLETEr(unit, rval));
+
+    /* Enable LLS */
+    rval = 0;
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, DEQUEUE_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, ENQUEUE_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, FC_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, MIN_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, PORT_SCHEDULER_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_CONFIG0r, &rval, SHAPER_ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_CONFIG0r(unit, rval));
+
+    /* Enable shaper background refresh */
+    rval = 0;
+    soc_reg_field_set(unit, LLS_MAX_REFRESH_ENABLEr, &rval, L0_MAX_REFRESH_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_MAX_REFRESH_ENABLEr, &rval, L1_MAX_REFRESH_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_MAX_REFRESH_ENABLEr, &rval, L2_MAX_REFRESH_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_MAX_REFRESH_ENABLEr, &rval, PORT_MAX_REFRESH_ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_MAX_REFRESH_ENABLEr(unit, rval));
+
+    rval = 0;
+    soc_reg_field_set(unit, LLS_MIN_REFRESH_ENABLEr, &rval, L0_MIN_REFRESH_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_MIN_REFRESH_ENABLEr, &rval, L1_MIN_REFRESH_ENABLEf, 1);
+    soc_reg_field_set(unit, LLS_MIN_REFRESH_ENABLEr, &rval, L2_MIN_REFRESH_ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_LLS_MIN_REFRESH_ENABLEr(unit, rval));
+
+    /* set refresh interval of 1.95usec for fewer number of queues ( <= 1k)  */
+    if (!soc_feature(unit, soc_feature_ddr3)) {
+        rval = 0;
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L2_MIN_UPPER_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L2_MIN_LOWER_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L1_MIN_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L0_MIN_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L2_MAX_UPPER_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L2_MAX_LOWER_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L1_MAX_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                L0_MAX_REFRESH_INTERVALf, 1);
+        soc_reg_field_set(unit, LLS_SHAPER_REFRESH_CONFIGr, &rval, 
+                                PORT_MAX_REFRESH_INTERVALf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_LLS_SHAPER_REFRESH_CONFIGr(unit, rval));
+    }
+
+    /* Enable all ports */
+    COMPILER_64_ZERO(r64val);
+    soc_reg64_field32_set(unit, INPUT_PORT_RX_ENABLE0_64r, &r64val,
+                          INPUT_PORT_RX_ENABLE_LOf, 0xffffffff);
+    soc_reg64_field32_set(unit, INPUT_PORT_RX_ENABLE0_64r, &r64val,
+                          INPUT_PORT_RX_ENABLE_HIf, 0x1f); /* ports 0..36 */
+    SOC_IF_ERROR_RETURN(WRITE_INPUT_PORT_RX_ENABLE0_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_INPUT_PORT_RX_ENABLE0_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_INPUT_PORT_RX_ENABLE0_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_INPUT_PORT_RX_ENABLE0_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_INPUT_PORT_RX_ENABLE0_64r(unit, r64val));
+
+    COMPILER_64_ZERO(r64val);
+    soc_reg64_field32_set(unit, INPUT_PORT_RX_ENABLE1_64r, &r64val,
+                          INPUT_PORT_RX_ENABLE_LOf, 0xffffffff);
+    soc_reg64_field32_set(unit, INPUT_PORT_RX_ENABLE1_64r, &r64val,
+                          INPUT_PORT_RX_ENABLE_HIf, 0x1); /* ports 37..69 */
+    SOC_IF_ERROR_RETURN(WRITE_INPUT_PORT_RX_ENABLE1_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_INPUT_PORT_RX_ENABLE1_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_INPUT_PORT_RX_ENABLE1_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_INPUT_PORT_RX_ENABLE1_64r(unit, r64val));
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_INPUT_PORT_RX_ENABLE1_64r(unit, r64val));
+
+    SOC_IF_ERROR_RETURN(WRITE_THDI_BYPASSr(unit, 0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_THDI_BYPASSr(unit, 0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_THDI_BYPASSr(unit, 0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_THDI_BYPASSr(unit, 0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_THDI_BYPASSr(unit, 0));
+    SOC_IF_ERROR_RETURN(WRITE_THDO_BYPASSr(unit, 0));
+
+    if (soc_feature(unit, soc_feature_ddr3)) {
+        /* Configure EMC */
+        SOC_IF_ERROR_RETURN(READ_EMC_CFGr(unit, &rval));
+        soc_reg_field_set(unit, EMC_CFGr, &rval, NUM_CISf, 3);
+        soc_reg_field_set(unit, EMC_CFGr, &rval, DRAM_SIZEf, 1); 
+        SOC_IF_ERROR_RETURN(WRITE_EMC_CFGr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_EMC_FREE_POOL_SIZESr(unit, &rval));
+        soc_reg_field_set(unit, EMC_FREE_POOL_SIZESr, &rval, WTFP_SIZEf, 240);
+        soc_reg_field_set(unit, EMC_FREE_POOL_SIZESr, &rval, RSFP_SIZEf, 128);
+        SOC_IF_ERROR_RETURN(WRITE_EMC_FREE_POOL_SIZESr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_EMC_IWRB_SIZEr(unit, &rval));
+        soc_reg_field_set(unit, EMC_IWRB_SIZEr, &rval, IWRB_SIZEf, 2);
+        SOC_IF_ERROR_RETURN(WRITE_EMC_IWRB_SIZEr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_EMC_IRRB_THRESHOLDSr(unit, &rval));
+        soc_reg_field_set(unit, EMC_IRRB_THRESHOLDSr, &rval, ALL_Q_XOFF_THRESHOLDf, 112);
+        soc_reg_field_set(unit, EMC_IRRB_THRESHOLDSr, &rval, ALL_UNDERRUN_Q_XON_THRESHOLDf, 112);
+        soc_reg_field_set(unit, EMC_IRRB_THRESHOLDSr, &rval, ALL_Q_XON_THRESHOLDf, 78);
+        SOC_IF_ERROR_RETURN(WRITE_EMC_IRRB_THRESHOLDSr(unit, rval));
+    }
+
+    /* WRED Configuration */
+    if ((dev_id != BCM56440_DEVICE_ID) && (dev_id != BCM56444_DEVICE_ID) &&
+        (dev_id != BCM56445_DEVICE_ID) && (dev_id != BCM56448_DEVICE_ID)) { /* And all other 90MHz variants */
+        SOC_IF_ERROR_RETURN(READ_WRED_MISCCONFIGr(unit, &rval));
+        soc_reg_field_set(unit, WRED_MISCCONFIGr, &rval, BASE_UPDATE_INTERVALf, 7);
+        SOC_IF_ERROR_RETURN(WRITE_WRED_MISCCONFIGr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_WRED_PARITY_ERROR_MASKr(unit, &rval));
+        soc_reg_field_set(unit, WRED_PARITY_ERROR_MASKr, &rval, UPDATE_INTRPT_MASKf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_WRED_PARITY_ERROR_MASKr(unit, rval));
+
+        SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &rval));
+        soc_reg_field_set(unit, MISCCONFIGr, &rval, REFRESH_ENf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, rval));
+    }
+
+    PBMP_ALL_ITER(unit, port) {
+        rval = 0;
+        soc_reg_field_set(unit, PORT_MAX_PKT_SIZEr, &rval, PORT_MAX_PKT_SIZEf,49);
+        SOC_IF_ERROR_RETURN(WRITE_PORT_MAX_PKT_SIZEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_MAX_PKT_SIZEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_MAX_PKT_SIZEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_MAX_PKT_SIZEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_MAX_PKT_SIZEr(unit, port, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_MIN_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_MIN_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_PORT_MIN_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_MIN_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_MIN_CELLr(unit, port, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_MAX_SHARED_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_MAX_SHARED_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_MAX_SHARED_CELLr, &rval, PORT_MAXf,5226);
+        SOC_IF_ERROR_RETURN(WRITE_PORT_MAX_SHARED_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_MAX_SHARED_CELLr, &rval, PORT_MAXf,3300);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_MAX_SHARED_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_MAX_SHARED_CELLr, &rval, PORT_MAXf,129628);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_MAX_SHARED_CELLr(unit, port, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_RESUME_LIMIT_CELLr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_RESUME_LIMIT_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_RESUME_LIMIT_CELLr, &rval, CELLSf,5208);
+        SOC_IF_ERROR_RETURN(WRITE_PORT_RESUME_LIMIT_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_RESUME_LIMIT_CELLr, &rval, CELLSf,3298);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_RESUME_LIMIT_CELLr(unit, port, rval));
+        soc_reg_field_set(unit, PORT_RESUME_LIMIT_CELLr, &rval, CELLSf,129574);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_RESUME_LIMIT_CELLr(unit, port, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_PRI_XON_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_PRI_XON_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_PRI_XON_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_PRI_XON_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_PRI_XON_ENABLEr(unit, port, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PORT_SHARED_MAX_PG_ENABLEr, &rval, PG_BMPf,0xff);
+        SOC_IF_ERROR_RETURN(WRITE_PORT_SHARED_MAX_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_SHARED_MAX_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_SHARED_MAX_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_SHARED_MAX_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_SHARED_MAX_PG_ENABLEr(unit, port, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PORT_MIN_PG_ENABLEr, &rval, PG_BMPf,0xff);
+        SOC_IF_ERROR_RETURN(WRITE_PORT_MIN_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_MIN_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_MIN_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_MIN_PG_ENABLEr(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_MIN_PG_ENABLEr(unit, port, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_MIN_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_MIN_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_MIN_CELLr, &rval, PG_MINf, 0x31);
+        SOC_IF_ERROR_RETURN(WRITE_PG_MIN_CELLr(unit,port,0,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_MIN_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_MIN_CELLr(unit, port, 0, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PG_SHARED_LIMIT_CELLr, &rval, PG_SHARED_DYNAMICf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_SHARED_LIMIT_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_SHARED_LIMIT_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_SHARED_LIMIT_CELLr, &rval, PG_SHARED_LIMITf, 7);
+        SOC_IF_ERROR_RETURN(WRITE_PG_SHARED_LIMIT_CELLr(unit,port,0,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_SHARED_LIMIT_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_SHARED_LIMIT_CELLr(unit, port, 0, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_GEf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_HDRM_LIMIT_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_HDRM_LIMIT_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 127);
+        SOC_IF_ERROR_RETURN(WRITE_PG_HDRM_LIMIT_CELLr(unit,port,0,rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 114);
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_GEf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_HDRM_LIMIT_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 3078);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_HDRM_LIMIT_CELLr(unit, port, 0, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_RESET_OFFSET_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_RESET_OFFSET_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 18);
+        SOC_IF_ERROR_RETURN(WRITE_PG_RESET_OFFSET_CELLr(unit,port,0,rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 2);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_RESET_OFFSET_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 54);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_RESET_OFFSET_CELLr(unit, port, 0, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_RESET_FLOOR_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_RESET_FLOOR_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_PG_RESET_FLOOR_CELLr(unit,port,0,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_RESET_FLOOR_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_RESET_FLOOR_CELLr(unit, port, 0, rval));
+
+
+    }
+
+    /* CPU Port */
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_HDRM_LIMIT_CELLr(unit, 0, 0, rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_HDRM_LIMIT_CELLr(unit, 0, 0, rval));
+    soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_GEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_PG_HDRM_LIMIT_CELLr(unit,0,0,rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_HDRM_LIMIT_CELLr(unit, 0, 0, rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_HDRM_LIMIT_CELLr(unit, 0, 0, rval));
+
+
+    /* MXQ Ports */
+    PBMP_MXQ_ITER(unit, port) {
+        rval = 0xffffff; /* PRIx_GRP = 0x7 */
+        SOC_IF_ERROR_RETURN(WRITE_PORT_PRI_GRP0r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_PORT_PRI_GRP1r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_PRI_GRP0r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PORT_PRI_GRP1r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_PRI_GRP0r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PORT_PRI_GRP1r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_PRI_GRP0r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PORT_PRI_GRP1r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_PRI_GRP0r(unit, port, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PORT_PRI_GRP1r(unit, port, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PG_SHARED_LIMIT_CELLr, &rval, PG_SHARED_DYNAMICf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_SHARED_LIMIT_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_SHARED_LIMIT_CELLr(unit, port, 7, rval));
+        soc_reg_field_set(unit, PG_SHARED_LIMIT_CELLr, &rval, PG_SHARED_LIMITf, 7);
+        SOC_IF_ERROR_RETURN(WRITE_PG_SHARED_LIMIT_CELLr(unit,port,7,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_SHARED_LIMIT_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_SHARED_LIMIT_CELLr(unit, port, 7, rval));
+
+        rval = 0;
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_GEf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_HDRM_LIMIT_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_HDRM_LIMIT_CELLr(unit, port, 7, rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 172);
+        SOC_IF_ERROR_RETURN(WRITE_PG_HDRM_LIMIT_CELLr(unit,port,7,rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 157);
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_GEf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_HDRM_LIMIT_CELLr(unit, port, 7, rval));
+        soc_reg_field_set(unit, PG_HDRM_LIMIT_CELLr, &rval, PG_HDRM_LIMITf, 4239);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_HDRM_LIMIT_CELLr(unit, port, 7, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_RESET_OFFSET_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_RESET_OFFSET_CELLr(unit, port, 7, rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 18);
+        SOC_IF_ERROR_RETURN(WRITE_PG_RESET_OFFSET_CELLr(unit,port,7,rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 2);
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_RESET_OFFSET_CELLr(unit, port, 7, rval));
+        soc_reg_field_set(unit, PG_RESET_OFFSET_CELLr, &rval, PG_RESET_OFFSETf, 54);
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_RESET_OFFSET_CELLr(unit, port, 7, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_RESET_FLOOR_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_RESET_FLOOR_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_PG_RESET_FLOOR_CELLr(unit,port,7,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_RESET_FLOOR_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_RESET_FLOOR_CELLr(unit, port, 7, rval));
+
+        rval = 0;
+        SOC_IF_ERROR_RETURN(WRITE_THDIEXT_PG_MIN_CELLr(unit, port, 7, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIEMA_PG_MIN_CELLr(unit, port, 0, rval));
+        soc_reg_field_set(unit, PG_MIN_CELLr, &rval, PG_MINf, 0x31);
+        SOC_IF_ERROR_RETURN(WRITE_PG_MIN_CELLr(unit,port,7,rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIRQE_PG_MIN_CELLr(unit, port, 0, rval));
+        SOC_IF_ERROR_RETURN(WRITE_THDIQEN_PG_MIN_CELLr(unit, port, 0, rval));
+    }
+    rval = 0xffffff; /* PRIx_GRP = 0x7 */
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_25_PRI_GRP0r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_25_PRI_GRP1r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_26_PRI_GRP0r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_26_PRI_GRP1r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_27_PRI_GRP0r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_27_PRI_GRP1r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_28_PRI_GRP0r(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_MMU_ENQ_HIGIG_28_PRI_GRP1r(unit, rval));
+
+    /* Input port shared space */
+/*    rval = 0;
+    soc_reg_field_set(unit, USE_SP_SHAREDr, &rval, ENABLEf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_USE_SP_SHAREDr(unit, rval));
+*/
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_BUFFER_CELL_LIMIT_SPr(unit,0,rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_BUFFER_CELL_LIMIT_SPr(unit,0,rval));
+    soc_reg_field_set(unit, BUFFER_CELL_LIMIT_SPr, &rval, LIMITf, 5226);
+    SOC_IF_ERROR_RETURN(WRITE_BUFFER_CELL_LIMIT_SPr(unit,0,rval));
+    soc_reg_field_set(unit, BUFFER_CELL_LIMIT_SPr, &rval, LIMITf, 3300);
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_BUFFER_CELL_LIMIT_SPr(unit,0,rval));
+    soc_reg_field_set(unit, BUFFER_CELL_LIMIT_SPr, &rval, LIMITf, 129628);
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_BUFFER_CELL_LIMIT_SPr(unit,0,rval));
+
+    SOC_IF_ERROR_RETURN(WRITE_BUFFER_CELL_LIMIT_SP_SHAREDr(unit,0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_BUFFER_CELL_LIMIT_SP_SHAREDr(unit,0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_BUFFER_CELL_LIMIT_SP_SHAREDr(unit,0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_BUFFER_CELL_LIMIT_SP_SHAREDr(unit,0));
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_BUFFER_CELL_LIMIT_SP_SHAREDr(unit,0));
+
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_CELL_RESET_LIMIT_OFFSET_SPr(unit, 0, rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_CELL_RESET_LIMIT_OFFSET_SPr(unit, 0, rval));
+    soc_reg_field_set(unit, CELL_RESET_LIMIT_OFFSET_SPr, &rval, OFFSETf, 7);
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_CELL_RESET_LIMIT_OFFSET_SPr(unit, 0, rval));
+    soc_reg_field_set(unit, CELL_RESET_LIMIT_OFFSET_SPr, &rval, OFFSETf, 63);
+    SOC_IF_ERROR_RETURN(WRITE_CELL_RESET_LIMIT_OFFSET_SPr(unit, 0, rval));
+    soc_reg_field_set(unit, CELL_RESET_LIMIT_OFFSET_SPr, &rval, OFFSETf, 189);
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_CELL_RESET_LIMIT_OFFSET_SPr(unit, 0, rval));
+
+    /* Input port per-device global headroom */
+    rval = 0;
+    SOC_IF_ERROR_RETURN(WRITE_THDIEXT_GLOBAL_HDRM_LIMITr(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIEMA_GLOBAL_HDRM_LIMITr(unit, rval));
+    soc_reg_field_set(unit, GLOBAL_HDRM_LIMITr, &rval, GLOBAL_HDRM_LIMITf, 107);
+    SOC_IF_ERROR_RETURN(WRITE_GLOBAL_HDRM_LIMITr(unit, rval));
+    SOC_IF_ERROR_RETURN(WRITE_THDIRQE_GLOBAL_HDRM_LIMITr(unit, rval));
+    soc_reg_field_set(unit, GLOBAL_HDRM_LIMITr, &rval, GLOBAL_HDRM_LIMITf, 2889);
+    SOC_IF_ERROR_RETURN(WRITE_THDIQEN_GLOBAL_HDRM_LIMITr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_THDO_MISCCONFIGr(unit, &rval));
+    soc_reg_field_set(unit, THDO_MISCCONFIGr, &rval, STAT_CLEARf, 0);
+    soc_reg_field_set(unit, THDO_MISCCONFIGr, &rval, PARITY_CHK_ENf, 1);
+    soc_reg_field_set(unit, THDO_MISCCONFIGr, &rval, PARITY_GEN_ENf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_THDO_MISCCONFIGr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_THR_CONFIGr(unit, &rval));
+    soc_reg_field_set(unit, OP_THR_CONFIGr, &rval, EARLY_E2E_SELECTf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_OP_THR_CONFIGr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_CELLIr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_CELLIr, &rval,
+                             OP_BUFFER_SHARED_LIMIT_CELLIf, 10490);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_CELLIr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_CELLEr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_CELLEr, &rval,
+                           OP_BUFFER_SHARED_LIMIT_CELLEf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_CELLEr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_QENTRYr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_QENTRYr, &rval,
+                           OP_BUFFER_SHARED_LIMIT_QENTRYf, 261712);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_QENTRYr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_THDORQEQr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_THDORQEQr, &rval,
+                         OP_BUFFER_SHARED_LIMITf, 8191);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_THDORQEQr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_THDOEMAr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_THDOEMAr, &rval,
+                       OP_BUFFER_SHARED_LIMITf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_THDOEMAr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_RESUME_CELLIr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_RESUME_CELLIr, &rval,
+                           OP_BUFFER_SHARED_LIMIT_RESUME_CELLIf, 10427);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_RESUME_CELLIr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_RESUME_CELLEr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_RESUME_CELLEr, &rval,
+                         OP_BUFFER_SHARED_LIMIT_RESUME_CELLEf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_RESUME_CELLEr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_RESUME_QENTRYr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_RESUME_QENTRYr, &rval,
+                         OP_BUFFER_SHARED_LIMIT_RESUME_QENTRYf, 261523);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_RESUME_QENTRYr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_RESUME_THDORQEQr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_RESUME_THDORQEQr, &rval,
+                       OP_BUFFER_SHARED_LIMIT_RESUMEf, 8185);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_RESUME_THDORQEQr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_SHARED_LIMIT_RESUME_THDOEMAr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_SHARED_LIMIT_RESUME_THDOEMAr, &rval,
+                     OP_BUFFER_SHARED_LIMIT_RESUMEf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_SHARED_LIMIT_RESUME_THDOEMAr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_LIMIT_YELLOW_CELLIr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_LIMIT_YELLOW_CELLIr, &rval,
+                     OP_BUFFER_LIMIT_YELLOW_CELLIf, 16);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_LIMIT_YELLOW_CELLIr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_OP_BUFFER_LIMIT_RED_CELLIr(unit, &rval));
+    soc_reg_field_set(unit, OP_BUFFER_LIMIT_RED_CELLIr, &rval,
+                     OP_BUFFER_LIMIT_RED_CELLIf, 16);
+    SOC_IF_ERROR_RETURN(WRITE_OP_BUFFER_LIMIT_RED_CELLIr(unit, rval));
+
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG_THDORQEIr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG_THDORQEIr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEIr, &rval, Q_LIMIT_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEIr, &rval, Q_LIMIT_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEIr, &rval, Q_SHARED_LIMITf, 7079);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG_THDORQEIr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG_THDORQEEr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG_THDORQEEr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEEr, &rval, Q_LIMIT_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEEr, &rval, Q_LIMIT_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEEr, &rval, Q_SHARED_LIMITf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG_THDORQEEr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG_THDORQEQr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG_THDORQEQr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEQr, &rval, Q_LIMIT_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEQr, &rval, Q_LIMIT_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDORQEQr, &rval, Q_SHARED_LIMITf, 8191);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG_THDORQEQr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG_THDOEMAr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG_THDOEMAr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDOEMAr, &rval, Q_LIMIT_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDOEMAr, &rval, Q_LIMIT_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG_THDOEMAr, &rval, Q_SHARED_LIMITf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG_THDOEMAr(unit, i, rval));
+    }
+
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG1_THDORQEIr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG1_THDORQEIr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEIr, &rval, Q_COLOR_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEIr, &rval, Q_COLOR_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEIr, &rval, Q_MINf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG1_THDORQEIr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG1_THDORQEEr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG1_THDORQEEr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEEr, &rval, Q_COLOR_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEEr, &rval, Q_COLOR_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEEr, &rval, Q_MINf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG1_THDORQEEr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG1_THDORQEQr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG1_THDORQEQr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEQr, &rval, Q_COLOR_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEQr, &rval, Q_COLOR_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDORQEQr, &rval, Q_MINf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG1_THDORQEQr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_CONFIG1_THDOEMAr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_CONFIG1_THDOEMAr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDOEMAr, &rval, Q_COLOR_ENABLEf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDOEMAr, &rval, Q_COLOR_DYNAMICf, 0);
+        soc_reg_field_set(unit, OP_QUEUE_CONFIG1_THDOEMAr, &rval, Q_MINf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_CONFIG1_THDOEMAr(unit, i, rval));
+    }
+
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_RESET_OFFSET_THDORQEIr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_RESET_OFFSET_THDORQEIr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_RESET_OFFSET_THDORQEIr, &rval, Q_RESET_OFFSETf, 2);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_RESET_OFFSET_THDORQEIr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_RESET_OFFSET_THDORQEEr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_RESET_OFFSET_THDORQEEr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_RESET_OFFSET_THDORQEEr, &rval, Q_RESET_OFFSETf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_RESET_OFFSET_THDORQEEr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_RESET_OFFSET_THDORQEQr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_RESET_OFFSET_THDORQEQr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_RESET_OFFSET_THDORQEQr, &rval, Q_RESET_OFFSETf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_RESET_OFFSET_THDORQEQr(unit, i, rval));
+    }
+    for(i=0; i<SOC_REG_NUMELS(unit, OP_QUEUE_RESET_OFFSET_THDOEMAr); i++) {
+        SOC_IF_ERROR_RETURN(READ_OP_QUEUE_RESET_OFFSET_THDOEMAr(unit, i, &rval));
+        soc_reg_field_set(unit, OP_QUEUE_RESET_OFFSET_THDOEMAr, &rval, Q_RESET_OFFSETf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_OP_QUEUE_RESET_OFFSET_THDOEMAr(unit, i, rval));
+    }
+    for(i=0; i<272; i++) { /* 8 x 28 ports  + 48 CPU */
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_QCONFIG_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_CELLm, &entry,
+                                    Q_SHARED_LIMIT_CELLf, 10490);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_CELLm, &entry,
+                                    Q_MIN_CELLf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_CELLm, &entry,
+                                    Q_LIMIT_ENABLE_CELLf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_CELLm, &entry,
+                                    Q_LIMIT_DYNAMIC_CELLf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_CELLm, &entry,
+                                    Q_COLOR_ENABLE_CELLf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_QCONFIG_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_QOFFSET_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_QOFFSET_CELLm, &entry,
+                                    RESET_OFFSET_CELLf, 2);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_QOFFSET_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_QCONFIG_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_QENTRYm, &entry,
+                                    Q_SHARED_LIMIT_QENTRYf, 261712);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_QENTRYm, &entry,
+                                    Q_MIN_QENTRYf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_QENTRYm, &entry,
+                                    Q_LIMIT_ENABLE_QENTRYf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_QENTRYm, &entry,
+                                    Q_LIMIT_DYNAMIC_QENTRYf, 0);
+        soc_mem_field32_set(unit, MMU_THDO_QCONFIG_QENTRYm, &entry,
+                                    Q_COLOR_ENABLE_QENTRYf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_QCONFIG_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_QOFFSET_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_QOFFSET_QENTRYm, &entry,
+                                    RESET_OFFSET_QENTRYf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_QOFFSET_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_OPNCONFIG_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_OPNCONFIG_CELLm, &entry,
+                                    OPN_SHARED_LIMIT_CELLf, 10490);
+        soc_mem_field32_set(unit, MMU_THDO_OPNCONFIG_CELLm, &entry,
+                                    OPN_SHARED_RESET_VALUE_CELLf, 10472);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_OPNCONFIG_CELLm(unit,MEM_BLOCK_ANY,i,&entry));
+
+        SOC_IF_ERROR_RETURN(READ_MMU_THDO_OPNCONFIG_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+        soc_mem_field32_set(unit, MMU_THDO_OPNCONFIG_QENTRYm, &entry,
+                                    OPN_SHARED_LIMIT_QENTRYf, 261712);
+        soc_mem_field32_set(unit, MMU_THDO_OPNCONFIG_QENTRYm, &entry,
+                                    OPN_SHARED_RESET_VALUE_QENTRYf, 261710);
+        soc_mem_field32_set(unit, MMU_THDO_OPNCONFIG_QENTRYm, &entry,
+                                    PORT_LIMIT_ENABLE_QENTRYf, 0);
+        SOC_IF_ERROR_RETURN(WRITE_MMU_THDO_OPNCONFIG_QENTRYm(unit,MEM_BLOCK_ANY,i,&entry));
+    }
+ 
+    /* Initialize MMU internal/external aging limit memory */
+    count = soc_mem_index_count(unit, MMU_AGING_LMT_INTm); 
+    sal_memset(&age_entry, 0, sizeof(mmu_aging_lmt_int_entry_t));
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_AGING_LMT_INTm(unit,
+                            MEM_BLOCK_ANY, i, &age_entry));
+    }
+
+    count = soc_mem_index_count(unit, MMU_AGING_LMT_EXTm); 
+    for (i=0; i < count; i++) {
+        SOC_IF_ERROR_RETURN(WRITE_MMU_AGING_LMT_EXTm(unit,
+                            MEM_BLOCK_ANY, i, &age_entry));
+    }
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_age_timer_get(int unit, int *age_seconds, int *enabled)
+{
+    uint32 rval;
+
+    SOC_IF_ERROR_RETURN(READ_L2_AGE_TIMERr(unit, &rval));
+    *enabled = soc_reg_field_get(unit, L2_AGE_TIMERr, rval, AGE_ENAf);
+    *age_seconds = soc_reg_field_get(unit, L2_AGE_TIMERr, rval, AGE_VALf);
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_age_timer_max_get(int unit, int *max_seconds)
+{
+    *max_seconds =
+        soc_reg_field_get(unit, L2_AGE_TIMERr, 0xffffffff, AGE_VALf);
+
+    return SOC_E_NONE;
+}
+
+STATIC int
+_soc_katana_age_timer_set(int unit, int age_seconds, int enable)
+{
+    uint32 rval;
+
+    rval = 0;
+    soc_reg_field_set(unit, L2_AGE_TIMERr, &rval, AGE_ENAf, enable);
+    soc_reg_field_set(unit, L2_AGE_TIMERr, &rval, AGE_VALf, age_seconds);
+    SOC_IF_ERROR_RETURN(WRITE_L2_AGE_TIMERr(unit, rval));
+
+    return SOC_E_NONE;
+}
+
+/* *************** WORKAROUND ***********************************************
+ * In Enduro-2 Variant, Access to LLS is inhibited by CI blocks, which share the
+ * sbus ring. DDR clock is not present in this variant. So, the hack is to use the
+ * TAP Interface to propagate coreclk to flops that were on DDR clock so that
+ * even if DDR clock is not running, the reset sync flops can get some clock pulses
+ *   ***  DO NOT CHANGE THIS SEQUENCE UNLESS YOU KNOW WHAT YOU ARE DOING  ***
+ *****************************************************************************/
+#define TAP_SEQ_1(_i, _j) do { \
+            WRITE_TOP_TAP_CONTROLr(unit,0xc); \
+            for (i=0; i<(_i); i++) { \
+                WRITE_TOP_TAP_CONTROLr(unit,0xd); \
+                WRITE_TOP_TAP_CONTROLr(unit,0x9); \
+            } \
+            WRITE_TOP_TAP_CONTROLr(unit,0xd); \
+            for (i=0; i<(_j); i++) { \
+                WRITE_TOP_TAP_CONTROLr(unit,0xc); \
+                WRITE_TOP_TAP_CONTROLr(unit,0x8); \
+            }\
+        } while(0)
+    
+#define TAP_SEQ_2(_i) do { \
+            WRITE_TOP_TAP_CONTROLr(unit,0xe); \
+            WRITE_TOP_TAP_CONTROLr(unit,0xa); \
+            WRITE_TOP_TAP_CONTROLr(unit,0xe); \
+            for (i=0; i<(_i); i++) { \
+                WRITE_TOP_TAP_CONTROLr(unit,0xc); \
+                WRITE_TOP_TAP_CONTROLr(unit,0x8); \
+            } \
+        } while(0)
+
+void 
+_ka_lls_workaround(int unit)
+{
+    int i,j;
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x0);
+    WRITE_TOP_TAP_CONTROLr(unit,0x0);
+    WRITE_TOP_TAP_CONTROLr(unit,0x0);
+    WRITE_TOP_TAP_CONTROLr(unit,0x4);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(1);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+
+    sal_usleep(1);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x0);
+    WRITE_TOP_TAP_CONTROLr(unit,0x4);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(1);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(6,3);
+    TAP_SEQ_1(8,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(21);
+    TAP_SEQ_1(1,341);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(2);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(1);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(6,3);
+    TAP_SEQ_1(8,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(14);
+    TAP_SEQ_1(2,5);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(3,1);
+    TAP_SEQ_1(2,1);
+    TAP_SEQ_1(10,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(4);
+    TAP_SEQ_1(1,703);
+    TAP_SEQ_1(22,1);
+    for (j=0; j<9; j++) {
+        TAP_SEQ_1(32,1);;
+    }
+    TAP_SEQ_1(32,17);
+    TAP_SEQ_1(1,3);
+    TAP_SEQ_1(1,3);
+    TAP_SEQ_1(3,7);
+    TAP_SEQ_1(1,10);
+    TAP_SEQ_1(1,5);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,2);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(6,3);
+    TAP_SEQ_1(8,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(14);
+    TAP_SEQ_1(2,2);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(6,3);
+    TAP_SEQ_1(8,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(5);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(4);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+
+    for (j=0; j<9; j++) {
+        WRITE_TOP_TAP_CONTROLr(unit,0xc);
+        WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    }
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(5);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(4);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    for (j=0; j<9; j++) {
+        WRITE_TOP_TAP_CONTROLr(unit,0xc);
+        WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    }
+    TAP_SEQ_1(2,1);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(15);
+    TAP_SEQ_1(2,1);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(2,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(15);
+    TAP_SEQ_1(2,3);
+    TAP_SEQ_1(2,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(15);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(1200);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(3);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(6,3);
+    TAP_SEQ_1(8,1);
+    TAP_SEQ_1(9,1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xd);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    WRITE_TOP_TAP_CONTROLr(unit,0xb);
+    WRITE_TOP_TAP_CONTROLr(unit,0xf);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(15);
+    TAP_SEQ_1(2,1);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(2,2);
+    TAP_SEQ_1(1,338);
+    TAP_SEQ_1(2,13);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    TAP_SEQ_2(5);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+
+    sal_usleep(4);
+
+    WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    for (j=0; j<9; j++) {
+        WRITE_TOP_TAP_CONTROLr(unit,0xc);
+        WRITE_TOP_TAP_CONTROLr(unit,0x8);
+    }
+    TAP_SEQ_1(1,2);
+    TAP_SEQ_1(1,1);
+    TAP_SEQ_1(2,2);
+    TAP_SEQ_1(1,14);
+    WRITE_TOP_TAP_CONTROLr(unit,0xe);
+    WRITE_TOP_TAP_CONTROLr(unit,0xa);
+    TAP_SEQ_2(1);
+    WRITE_TOP_TAP_CONTROLr(unit,0xc);
+    for (i=0; i<6; i++) {
+        WRITE_TOP_TAP_CONTROLr(unit,0x0);
+    }
+}
+
+
+/*
+ * Katana chip driver functions.
+ */
+soc_functions_t soc_katana_drv_funs = {
+    _soc_katana_misc_init,
+    _soc_katana_mmu_init,
+    _soc_katana_age_timer_get,
+    _soc_katana_age_timer_max_get,
+    _soc_katana_age_timer_set,
+};
+
+
+static const soc_reg_t thermal_reg[] = {
+    TOP_THERMAL_PVTMON_RESULT_0r, TOP_THERMAL_PVTMON_RESULT_1r,
+    TOP_THERMAL_PVTMON_RESULT_2r, TOP_THERMAL_PVTMON_RESULT_3r
+};
+
+int
+soc_katana_show_temperature_monitor(int unit)
+{
+    uint32 rval;
+    soc_reg_t reg;
+    int index;
+    int fval, cur, peak, avg_cur, max_peak;
+
+    SOC_IF_ERROR_RETURN(READ_TOP_THERMAL_PVTMON_CTRL_2r(unit, &rval));
+    soc_reg_field_set(unit, TOP_THERMAL_PVTMON_CTRL_2r, &rval, PVTMON_RSTBf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_THERMAL_PVTMON_CTRL_2r(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_TOP_THERMAL_PVTMON_CTRLr(unit, &rval));
+    soc_reg_field_set(unit, TOP_THERMAL_PVTMON_CTRLr, &rval, MEASUREMENT_CALLIBRATIONf, 1);
+    soc_reg_field_set(unit, TOP_THERMAL_PVTMON_CTRLr, &rval, BG_ADJf, 2);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_THERMAL_PVTMON_CTRLr(unit, rval));
+
+    SOC_IF_ERROR_RETURN(READ_TOP_THERMAL_PVTMON_CTRL_2r(unit, &rval));
+    soc_reg_field_set(unit, TOP_THERMAL_PVTMON_CTRL_2r, &rval, PVTMON_RSTBf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_THERMAL_PVTMON_CTRL_2r(unit, rval));
+    soc_reg_field_set(unit, TOP_THERMAL_PVTMON_CTRL_2r, &rval, PVTMON_RSTBf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_THERMAL_PVTMON_CTRL_2r(unit, rval));
+
+    sal_usleep(1000);
+
+    avg_cur = 0;
+    max_peak = 0x80000000;
+    for (index = 0; index < 4; index++) {
+        reg = thermal_reg[index];
+        SOC_IF_ERROR_RETURN(soc_reg32_get(unit, reg, REG_PORT_ANY, 0, &rval));
+        if (soc_reg_field_valid(unit, reg, PVTTEMP_DATAf)) {
+            fval = soc_reg_field_get(unit, reg, rval, PVTTEMP_DATAf);
+        } else {
+            fval = soc_reg_field_get(unit, reg, rval, TEMP_DATAf);
+        }
+        cur = (4070000 - (5380 * fval)) / 10000;
+        if (soc_reg_field_valid(unit, reg, PEAK_PVTTEMP_DATAf)) {
+            fval = soc_reg_field_get(unit, reg, rval, PEAK_PVTTEMP_DATAf);
+        } else {
+            fval = soc_reg_field_get(unit, reg, rval, PEAK_TEMP_DATAf);
+        }
+        peak = (4070000 - (5380 * fval)) / 10000;
+        soc_cm_print("temperature monitor %d: current=%3d, peak=%3d\n",
+                     index, cur, peak);
+        avg_cur += cur;
+        if (max_peak < peak) {
+            max_peak = peak;
+        }
+    }
+    soc_cm_print("average current temperature is %d\n", avg_cur / 4);
+    soc_cm_print("maximum peak temperature is %d\n", max_peak);
+
+    SOC_IF_ERROR_RETURN(READ_TOP_MISC_CONTROLr(unit, &rval));
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON0_PEAK_DATA_RST_Lf, 1);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON1_PEAK_DATA_RST_Lf, 1);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON2_PEAK_DATA_RST_Lf, 1);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON3_PEAK_DATA_RST_Lf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_MISC_CONTROLr(unit, rval));
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON0_PEAK_DATA_RST_Lf, 0);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON1_PEAK_DATA_RST_Lf, 0);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON2_PEAK_DATA_RST_Lf, 0);
+    soc_reg_field_set(unit, TOP_MISC_CONTROLr, &rval,
+                      THERMAL_PVTMON3_PEAK_DATA_RST_Lf, 0);
+    SOC_IF_ERROR_RETURN(WRITE_TOP_MISC_CONTROLr(unit, rval));
+
+    return SOC_E_NONE;
+}
+
+int
+soc_katana_show_ring_osc(int unit)
+{
+    static char *names[] = {
+        "IO ring 0", "IO ring 1", "Core ring 0", "Core ring 1"
+    };
+    uint32 rval;
+    int ring, div, quo, rem, frac;
+    int cmc = SOC_PCI_CMC(unit);
+    int core_clk = 133 * 1024;
+
+    for (ring = 0; ring < 4; ring++) {
+        SOC_IF_ERROR_RETURN(READ_TOP_MISC_CONTROL_3r(unit, &rval));
+        soc_reg_field_set(unit, TOP_MISC_CONTROL_3r, &rval, OSC_ENABLEf, 1);
+        soc_reg_field_set(unit, TOP_MISC_CONTROL_3r, &rval, OSC_SELf, ring);
+        SOC_IF_ERROR_RETURN(WRITE_TOP_MISC_CONTROL_3r(unit, rval));
+        soc_reg_field_set(unit, TOP_MISC_CONTROL_3r, &rval, OSC_CNT_RSTBf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_TOP_MISC_CONTROL_3r(unit, rval));
+        soc_reg_field_set(unit, TOP_MISC_CONTROL_3r, &rval, OSC_CNT_STARTf, 1);
+        SOC_IF_ERROR_RETURN(WRITE_TOP_MISC_CONTROL_3r(unit, rval));
+
+        sal_usleep(1000);
+
+        rval = soc_pci_read(unit, CMIC_CMCx_IRQ_STAT3_OFFSET(cmc));
+        /* SOC_IF_ERROR_RETURN(READ_CMIC_CMC0_IRQ_STAT3r(unit, &rval)); */
+        div = rval & 0xffff;
+        if (0 == div) {
+            quo = 0;
+            frac = 0;
+        } else {
+            quo = core_clk / div;
+            rem = core_clk - quo * div;
+            frac = (rem * 10000) / div;
+        }
+        soc_cm_print("%s: %d.%04d Mhz\n",
+                     names[ring], quo, frac);
+    }
+
+    return SOC_E_NONE;
+}
+
+#endif /* BCM_KATANA_SUPPORT */

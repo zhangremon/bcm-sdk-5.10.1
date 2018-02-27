@@ -1,0 +1,2871 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+        <title>SDK 5.10.1 Release Notes</title>
+        
+  <style type="text/css"><!--
+BODY {
+	font-family: "verdana", "arial", "helvetica", "sans-serif";
+}
+  --></style>
+</head>
+
+<body bgcolor="#FFFFFF">
+
+<h2>SDK 5.10.1 Release Notes</h2>
+<h3>Section Reference</h3>
+<table cellpadding=0 cellspacing=2 border=0 summary="reference" >
+<tr><td><a href="#section_about">Section 1: </a></td>
+<td>&nbsp;&nbsp;</td><td> About This Document
+</td>
+<tr><td><a href="#section_docs">Section 2: </a></td>
+<td>&nbsp;&nbsp;</td><td> Product Documentation
+</td>
+<tr><td><a href="#section_media">Section 3: </a></td>
+<td>&nbsp;&nbsp;</td><td> Release Media
+</td>
+<tr><td><a href="#section_support">Section 4: </a></td>
+<td>&nbsp;&nbsp;</td><td> Support
+</td>
+<tr><td><a href="#section_new">Section 5: </a></td>
+<td>&nbsp;&nbsp;</td><td> New in this Release
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#Watch-out-for-this">Section 5.1: </a></td>
+<td>&nbsp;&nbsp;</td><td> Things to note
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#new-hardware">Section 5.2: </a></td>
+<td>&nbsp;&nbsp;</td><td> New Devices and Systems
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#api-changes">Section 5.3: </a></td>
+<td>&nbsp;&nbsp;</td><td> Summary of BCM and BCMX API changes
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#field">Section 5.3.1: </a></td>
+<td>&nbsp;&nbsp;</td><td> Field
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#mpls">Section 5.3.2: </a></td>
+<td>&nbsp;&nbsp;</td><td> MPLS
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#resolved5.10.1">Section 5.4: </a></td>
+<td>&nbsp;&nbsp;</td><td> Resolved Issues for 5.10.1
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#resolved5.10.0">Section 5.5: </a></td>
+<td>&nbsp;&nbsp;</td><td> Resolved Issues for 5.10.0
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#platforms">Section 5.6: </a></td>
+<td>&nbsp;&nbsp;</td><td> Device and Platform Support
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#devices">Section 5.6.1: </a></td>
+<td>&nbsp;&nbsp;</td><td> Switch Devices
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#phys">Section 5.6.2: </a></td>
+<td>&nbsp;&nbsp;</td><td> PHYs
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#os">Section 5.6.3: </a></td>
+<td>&nbsp;&nbsp;</td><td> Operating Systems
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#cpu">Section 5.6.4: </a></td>
+<td>&nbsp;&nbsp;</td><td> CPU Subsystems
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#combinations">Section 5.6.5: </a></td>
+<td>&nbsp;&nbsp;</td><td> CPU and Operating System Combinations
+</td>
+<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#refdesigns">Section 5.6.6: </a></td>
+<td>&nbsp;&nbsp;</td><td> Reference Designs
+</td>
+<tr><td><a href="#section_Appendix_A">Section 6: </a></td>
+<td>&nbsp;&nbsp;</td><td> SDK Externally Licensed Software Components
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#EDITLINE_license_terms_and_conditions">Section 6.1: </a></td>
+<td>&nbsp;&nbsp;</td><td> EDITLINE License terms and conditions
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#CINT_license_terms_and_conditions">Section 6.2: </a></td>
+<td>&nbsp;&nbsp;</td><td> CINT parser license terms and conditions
+</td>
+<tr><td>&nbsp;&nbsp;<a href="#CES_Driver_license_terms_and_conditions">Section 6.3: </a></td>
+<td>&nbsp;&nbsp;</td><td> Circuit Emulation Service (CES) Driver terms and conditions
+</td>
+</table>
+<hr noshade>
+<h2>Alphabetical list of all APIs</h2>
+<table cellpadding=0 cellspacing=2 border=0 summary="api" >
+<tr><td><a href=#bcm_field_stat_id_get><tt>bcm_field_stat_id_get</tt></a></td>
+<td>&nbsp;</td><td>Get stat counter id associated with given field group.
+</td></tr><tr><td><a href=#bcm_mpls_label_stat_counter_get><tt>bcm_mpls_label_stat_counter_get</tt></a></td>
+<td>&nbsp;</td><td>Get counter statistic values for specific MPLS label and gport
+</td></tr><tr><td><a href=#bcm_mpls_label_stat_counter_set><tt>bcm_mpls_label_stat_counter_set</tt></a></td>
+<td>&nbsp;</td><td>Set counter statistic values for specific MPLS label and gport
+</td></tr><tr><td><a href=#bcm_mpls_label_stat_id_get><tt>bcm_mpls_label_stat_id_get</tt></a></td>
+<td>&nbsp;</td><td>Get stat counter id associated with given mpls label and gport.
+</td></tr><tr><td><a href=#bcm_mpls_port_stat_counter_get><tt>bcm_mpls_port_stat_counter_get</tt></a></td>
+<td>&nbsp;</td><td>Get counter statistic values for specific vpn and gport
+</td></tr><tr><td><a href=#bcm_mpls_port_stat_counter_set><tt>bcm_mpls_port_stat_counter_set</tt></a></td>
+<td>&nbsp;</td><td>Set counter statistic values for specific vpn and gport
+</td></tr><tr><td><a href=#bcm_mpls_port_stat_id_get><tt>bcm_mpls_port_stat_id_get</tt></a></td>
+<td>&nbsp;</td><td>Get stat counter id associated with given mpls gport and vpn.
+</td></tr></table>
+<br><br><hr noshade><br><br>
+    <a name=section_about>
+    <h3>Section 1:  About This Document
+</h3>
+<p>These are the Release Notes for the Broadcom Network Switching
+Software Development Kit, Release 5.10.1
+<p>This document provides a general description of the release and its new features. It also describes the chips supported by the release, BCM/BCMX API additions or changes, resolved issues, and any relevant open issues.  
+<br><br><hr noshade><br><br>
+    <a name=section_docs>
+    <h3>Section 2:  Product Documentation
+</h3>
+<p>The following documents are available through Broadcom's
+Customer Support Portal, http://support.broadcom.com. They are
+the primary source of information and should be referenced 
+when using this release:
+<p><h3>Table 1:   Product Documentation
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Document</b></td><td><b> Description
+</b></td></tr><tr><td>  56XX-PG624-R</td><td> BCM and BCMX API Reference Guide.
+<p>This manual describes the theory of operations of the API and all existing BCM 
+and BCMX APIs for this release. 
+</td></tr><tr><td>  [**56XX-PG704-R]</td><td> Stacking Software Guide
+<p>This guide describes how to use the discovery and stacking applications 
+provided in this release. 
+</td></tr><tr><td>  56XX-PG812-R</td><td> Platform Guide
+<p>This guide describes the SDK source and Makefile structure, abstraction and 
+porting layers, device specific interactions, and the platform/operating
+system specific features of the SDK. If this is your first time
+working with the SDK, start with this document. 
+</td></tr></tbody></table><br><br><hr noshade><br><br>
+    <a name=section_media>
+    <h3>Section 3:  Release Media
+</h3>
+<p>The Software Development Kit is released as a gzipped tar file on the Broadcom Customer Support Portal, http://support.broadcom.com. The Network Switching Software Platform Guide, also available on the Customer Support Portal, provides documentation on the various components, the source directory layout, how to build the release for various platforms, and how to customize and port the
+software to new platforms. 
+<br><br><hr noshade><br><br>
+    <a name=section_support>
+    <h3>Section 4:  Support
+</h3>
+<p>Questions, feedback, and/or suggestions should be sent to your Broadcom FAE.
+<br><br><hr noshade><br><br>
+    <a name=section_new>
+    <h3>Section 5:  New in this Release
+</h3>
+<p>This section describes feature and device support that is introduced in this release. 
+<br><hr noshade><a name="Watch-out-for-this"></a>
+<h3>Section 5.1:   Things to note
+</h3>
+<p><br><hr noshade><a name="new-hardware"></a>
+<h3>Section 5.2:   New Devices and Systems
+</h3>
+<p>For any given SDK release, support for certain devices may be provided in Preview or Supported status. Devices in preview status are provided to allow early integration of the customer's application with the SDK APIs that support that device. This software has not been tested on the physical target device and should not be expected to fully function. 
+<p>Devices in "Supported" status have completed the full QA process and are intended for use in production systems.  It is expected that customers would integrate the version of the SDK which provides "Supported" status for their use on actual development or production systems.
+
+<a name=ssd></a>
+<h3>Table 2:   Newly added Switch Devices
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Family</b></td><td><b>  Devices</b></td><td><b> Description
+</b></td></tr></tbody></table>
+<a name=psd></a>
+<h3>Table 3:   Pre-Silicon Preview Switch Devices
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Family</b></td><td><b>  Devices</b></td><td><b> Description
+</b></td></tr></tbody></table>
+<a name=newphys></a>
+<h3>Table 4:   PHYs
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Device</b></td><td><b>  Driver Family</b></td><td><b>  Support Status</b></td><td><b> Description
+</b></td></tr><tr><td> <tt>BCM84834_B0</tt>
+</td><td> 8481
+</td><td> Quad 10GBASE-T Transceiver. Firmware version 1.25 (Preview)
+</td></tr><tr><td> <tt>BCM54380_B0</tt>
+</td><td> 54380
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver (Needs additional software component)
+</td></tr><tr><td> <tt>BCM54382_B0</tt>
+</td><td> 54380
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver (Needs additional software component)
+</td></tr></tbody></table>
+<a name=rd></a>
+<h3>Table 5:   Reference Designs
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Name</b></td><td><b>  Support Status</b></td><td><b> Description
+</b></td></tr></tbody></table><h3>Table 6:   CPU and Operating System Combinations
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  CPU Subsystem</b></td><td><b>  Operating System</b></td><td><b> Description
+</b></td></tr><tr><td> BCM5360X
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5360X
+</td><td> VxWorks 6.6
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5360X
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td> BCM5360X
+</td><td> Linux 2.6.27
+</td><td> Available through WindRiver Linux 3.x
+</td></tr></tbody></table><p><br><hr noshade><a name="api-changes"></a>
+<h3>Section 5.3:   Summary of BCM and BCMX API changes
+</h3>
+<p>This section summarizes BCM and BCMX API changes in this release.
+Complete documentation is available in the Network Switching Software
+Programmer's Guide [**56XX-PG609-R].  (See section 2 earlier 
+in this document for availability). 
+<p>Unless otherwise mentioned, any newly defined or changed BCM API
+will have equivalent changes in the BCMX APIs.
+<p>Some of the API recently introduced in 5.10.0GA have been changed. The new signature 
+and the description of these changed APIs are listed in the sections below. 
+<br><hr noshade><a name="field"></a>
+<h3>Section 5.3.1:   Field
+</h3>
+<p><hr noshade>
+<h3>APIs for Section 5.3.1:  Field
+</h3>
+<a name=bcm_field_stat_id_get></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_field_stat_id_get</tt><br>
+</h2>
+
+<blockquote>
+Get stat counter id associated with given field group.
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/field.h&gt;
+int 
+bcm_field_stat_id_get(
+    int               unit,
+    bcm_field_group_t group,
+    uint32            stat_id,
+    uint32           *stat_counter_id);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>group</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Group number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat_id</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Statistics entity ID
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter to retrieve
+                            I.e. ingress/egress byte/packet
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat_counter_id</tt></td><td>&nbsp;&nbsp;</td><td>
+ (OUT) Stat Counter ID
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will provide stat counter ids associated with given field group.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<br><hr noshade><a name="mpls"></a>
+<h3>Section 5.3.2:   MPLS
+</h3>
+<p><hr noshade>
+<h3>APIs for Section 5.3.2:  MPLS
+</h3>
+<a name=bcm_mpls_port_stat_counter_get></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_port_stat_counter_get</tt><br>
+</h2>
+
+<blockquote>
+Get counter statistic values for specific vpn and gport
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_port_stat_counter_get(
+    int              unit,
+    bcm_vpn_t        vpn,
+    bcm_gport_t      port,
+    bcm_mpls_stat_t  stat,
+    uint32           num_entries,
+    uint32           *counter_indexes,
+    bcm_stat_value_t *counter_values);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>vpn</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) VPN ID
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter to retrieve
+                            I.e. ingress/egress byte/packet
+</td></tr>
+<tr><td class="arg" valign="top"><tt>num_entries</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Number of counter Entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_indexes</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to Counter indexes entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_values</tt></td><td>&nbsp;&nbsp;</td><td>
+ (OUT) Pointer to counter values
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will retrieve set of counter statistic values for specific vpn and 
+gport.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<a name=bcm_mpls_port_stat_counter_set></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_port_stat_counter_set</tt><br>
+</h2>
+
+<blockquote>
+Set counter statistic values for specific vpn and gport
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_port_stat_counter_set(
+    int                  unit,
+    bcm_vpn_t            vpn,
+    bcm_gport_t          port,
+    bcm_mpls_stat_t      stat,
+    uint32               num_entries,
+    uint32               *counter_indexes,
+    bcm_stat_value_t     *counter_values);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>vpn</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) VPN ID
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter to set
+                            I.e. ingress/egress byte/packet
+</td></tr>
+<tr><td class="arg" valign="top"><tt>num_entries</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Number of counter Entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_indexes</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to Counter indexes entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_values</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to counter values
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will counter statistic values for specific vpn and gport.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<a name=bcm_mpls_port_stat_id_get></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_port_stat_id_get</tt><br>
+</h2>
+
+<blockquote>
+Get stat counter id associated with given mpls gport and vpn.
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_port_stat_id_get(
+    int                  unit,
+    bcm_vpn_t            vpn,
+    bcm_gport_t          port,
+    bcm_mpls_stat_t      stat,
+    uint32               *stat_counter_id);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>vpn</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) VPN ID
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat_counter_id</tt></td><td>&nbsp;&nbsp;</td><td>
+ (OUT) Stat Counter ID
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will provide stat counter ids associated with given mpls gport 
+and vpn.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<a name=bcm_mpls_label_stat_counter_get></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_label_stat_counter_get</tt><br>
+</h2>
+
+<blockquote>
+Get counter statistic values for specific MPLS label and gport
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_label_stat_counter_get(
+    int                  unit,
+    bcm_mpls_label_t     label,
+    bcm_gport_t          port,
+    bcm_mpls_stat_t      stat,
+    uint32               num_entries,
+    uint32               *counter_indexes,
+    bcm_stat_value_t     *counter_values);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>label</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Label
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter to retrieve
+                            I.e. ingress/egress byte/packet
+</td></tr>
+<tr><td class="arg" valign="top"><tt>num_entries</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Number of counter Entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_indexes</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to Counter indexes entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_values</tt></td><td>&nbsp;&nbsp;</td><td>
+ (OUT) Pointer to counter values
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will retrieve set of counter statistic values for specific MPLS 
+label and gport.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<a name=bcm_mpls_label_stat_counter_set></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_label_stat_counter_set</tt><br>
+</h2>
+
+<blockquote>
+Set counter statistic values for specific MPLS label and gport
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_label_stat_counter_set(
+    int                  unit,
+    bcm_mpls_label_t     label,
+    bcm_gport_t          port,
+    bcm_mpls_stat_t      stat,
+    uint32               num_entries,
+    uint32               *counter_indexes,
+    bcm_stat_value_t     *counter_values);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>label</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Label
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter to set
+                            I.e. ingress/egress byte/packet
+</td></tr>
+<tr><td class="arg" valign="top"><tt>num_entries</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Number of counter Entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_indexes</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to Counter indexes entries
+</td></tr>
+<tr><td class="arg" valign="top"><tt>counter_values</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Pointer to counter values
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will set counter statistic values for specific MPLS label and gport.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<a name=bcm_mpls_label_stat_id_get></a>
+<hr noshade>
+<h2 class="api">
+<tt>bcm_mpls_label_stat_id_get</tt><br>
+</h2>
+
+<blockquote>
+Get stat counter id associated with given mpls label and gport.
+</blockquote><h3>SYNOPSIS</h3>
+<blockquote><pre>#include &lt;bcm/mpls.h&gt;
+int
+bcm_mpls_label_stat_id_get(
+    int                  unit,
+    bcm_mpls_label_t     label,
+    bcm_gport_t          port,
+    bcm_mpls_stat_t      stat,
+    uint32               *stat_counter_id);
+</pre></blockquote><h3>PARAMETERS</h3>
+<blockquote><table cellpadding=2 summary="parameters"><tr><td class="arg" valign="top"><tt>unit</tt></td><td>&nbsp;&nbsp;</td><td>
+            (IN) Unit number.
+</td></tr>
+<tr><td class="arg" valign="top"><tt>label</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Label
+</td></tr>
+<tr><td class="arg" valign="top"><tt>port</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) MPLS Gport
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat</tt></td><td>&nbsp;&nbsp;</td><td>
+ (IN) Type of the counter
+</td></tr>
+<tr><td class="arg" valign="top"><tt>stat_counter_id</tt></td><td>&nbsp;&nbsp;</td><td>
+ (OUT) Stat Counter ID
+</td></tr>
+</table></blockquote><h3>DESCRIPTION</h3><blockquote>
+This API will provide stat counter ids associated with mpls label and gport.
+</blockquote><h3>RETURNS</h3><blockquote>
+BCM_E_xxx
+</blockquote>
+<p><br><hr noshade><a name="resolved5.10.1"></a>
+<h3>Section 5.4:   Resolved Issues for 5.10.1
+</h3>
+<p>The following issues are resolved in version 5.10.1 of the SDK.
+<p><table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b> Number
+ </b></td><td><b> Release Notes For 5.10.1
+</b></td></tr><tr><td> SDK-24850 
+ </td><td> For entries in Lookup stage with counters attached to it, <tt>BCM_FIELD_COUNTER_MODE_DEFAULT</tt> counter mode
+must be used for bcmFieldActionUpdateCounter action.
+<p><tt>bcm_field_entry_install</tt>() API will return <tt>BCM_E_CONFIG</tt> error when entries with invalid hardware counter mode
+is detected.  It is recommended to use <tt>bcm_field_stat_xxx</tt>() APIs instead of counter APIs, as for all newer devices
+only STATs APIs are supported.
+</td></tr><tr><td> SDK-32065 
+ </td><td> The "intr" diag command was giving an error. This issue has been fixed.
+</td></tr><tr><td> SDK-33252 
+ </td><td> Fix MODID assignment on BCM5684x.
+</td></tr><tr><td> SDK-33384 
+ </td><td> Added proper error check when calling mmap from Linux user mode BDE.
+</td></tr><tr><td> SDK-33417 
+ </td><td> Update Linux module bcm-net to support Linux kernel 2.6.27 and newer.
+</td></tr><tr><td> SDK-33748 
+ </td><td> Repaired <tt>bcm_cosq_gport_discard_set</tt>/get functions in BCM56820-only compilation.
+</td></tr><tr><td> SDK-33963 
+ </td><td> Fixed error in trunk destination handling in <tt>bcm_mirror_port_get</tt>.
+</td></tr><tr><td> SDK-34013 
+ </td><td> <tt>bcm_cosq_gport_statistic_multi_get</tt>() was failing for certain types of logical ports on BCM88230 devices.
+</td></tr><tr><td> SDK-34018 
+ </td><td> The GE PHY <tt>master_get</tt>() routines now obtain the master / slave status from the GE stataus register (reg. 0xa) instead of the GE control register (0x9).
+</td></tr><tr><td> SDK-34097 
+ </td><td> Fix an assertion due to out of range VLAN class id.
+</td></tr><tr><td> SDK-34120 
+ </td><td> Enable CR4 mode (for DFE) support between 56843 &amp; 84740
+</td></tr><tr><td> SDK-34121 
+ </td><td> <tt>bcm_port_fault_get</tt>() now supports HG and XE ports on BCM88230 devices.
+</td></tr><tr><td> SDK-34167 
+ </td><td> Added additional link status tests for removable PHY devices to ensure that the proper link status is reported when a PHY is removed.
+</td></tr><tr><td> SDK-34177 
+ </td><td> API <tt>bcm_vlan_translate_action_range_traverse</tt> should now work correctly for BCM5684x Switches
+</td></tr><tr><td> SDK-34185 
+ </td><td> Fixed L3 egress object retrieval for <tt>bcm_tunnel_switch_get</tt> API.
+</td></tr><tr><td> SDK-34254 
+ </td><td> Test case (AT_mpls_326) added to provide API usage for VPWS Software-based Failover/protection mechanism.
+Fixed invalid memory access introduced as a result of earlier checkins.
+</td></tr><tr><td> SDK-34265 
+ </td><td> QE2000 easy reload bugfix for memory access on initialization.
+</td></tr><tr><td> SDK-34337 SDK-35385 SDK-35378
+ </td><td> Turned <tt>soc_feature_tunnel_dscp_trust</tt> 'on' for BCM 56218_a0, 56224_a0, 56224_b0, 53314_a0, 53324_a0, 56800_a0, 56820_a0 and 56725_a0.
+</td></tr><tr><td> SDK-34350 
+ </td><td> <tt>bcm_mpls_tunnel_initiator_create</tt> API may be used to create Explicit_NULL label. User may create multiple of these labels with the same EXP and TTL values and different L3 Interfaces.
+In such a scenario, each L3 Interface should point to the same MPLS-Tunnel entry.
+</td></tr><tr><td> SDK-34352 
+ </td><td> For L3-VPN egress into MPLS-Tunnel, <tt>EGR_L3_NEXT_HOP</tt>.<tt>ENTRY_TYPE</tt> =1.
+When <tt>ENTRY_TYPE</tt> is modified to 1, then Entry-0 index gets assigned to <tt>EGR_L3_NEXT_HOP</tt>.<tt>VC_AND_SWAP_INDEX</tt>.
+Entry-0 of <tt>EGR_MPLS_VC_AND_SWAP_LABEL_TABLE</tt> is reserved for default-entry with LABEL_ACTIONf = RESERVED.
+This is to ensure that Entry-0 is not re-assigned with Valid Label_action. 
+</td></tr><tr><td> SDK-34421 
+ </td><td> Fixed MIIM C45 functions to properly use CMICm.
+</td></tr><tr><td> SDK-34427 
+ </td><td> Support the <tt>bcm_field_stat_create_id</tt>() function for ROBO chips.
+</td></tr><tr><td> SDK-34466 
+ </td><td> Add the support to configure the untagged packets mapping of the functions, <tt>bcm_port_vlan_priority_map_set</tt>/get(), for ROBO chips.
+</td></tr><tr><td> SDK-34483 
+ </td><td> Fixed occasional Linux kernel <tt>skb_over_panic</tt> when KNET kernel module is used in default receive mode (<tt>use_rx_skb</tt>=0).
+</td></tr><tr><td> SDK-34524 
+ </td><td> Improved parameter validation in <tt>bcm_cosq_gport_attach_get</tt>() on BCM88230 devices.
+</td></tr><tr><td> SDK-34525 
+ </td><td> <tt>bcm_cosq_gport_delete</tt>() might cause an existing shaper on other queues to not function properly on BCM88230 devices
+</td></tr><tr><td> SDK-34532 
+ </td><td> Program the correct value in RPE field for Vlan Translation Table.
+</td></tr><tr><td> SDK-34537 
+ </td><td> For scenarios where MPLS label is same but EXP and TTL are different, index to <tt>EGR_VC_AND_SWAP_LABEL_TABLE</tt> must be different. This issue is fixed.
+</td></tr><tr><td> SDK-34539 
+ </td><td> Only during request for physical statistics will the call getting a physical interface number be accessed.
+</td></tr><tr><td> SDK-34541 
+ </td><td> Fix diag shell show counter output display names for unicast queue drop counter and multicast queue drop counter on BCM5684x.
+</td></tr><tr><td> SDK-34547 
+ </td><td> Remove unsupported <tt>bcm_robo_stat_custom_get</tt>/set APIs for ROBO chips.
+</td></tr><tr><td> SDK-34564 
+ </td><td> CINT functions could not access global variables if called from an enclosing block scope in the interpreter.
+</td></tr><tr><td> SDK-34596 
+ </td><td> Eliminated warnings when compiling CINT with GCC 4.6.0
+</td></tr><tr><td> SDK-34598 
+ </td><td> "stktask tx" diag shell subcommand was not returning calculated return code.
+</td></tr><tr><td> SDK-34600 
+ </td><td> Fix <tt>bcm_rate_set</tt> API when applying different limit setting for different types of traffic on the same port in packet mode.
+</td></tr><tr><td> SDK-34615 
+ </td><td> <tt>EP_DEST_PORT_MAP</tt> is no longer configured by SDK on BCM88230 devices when the configuration property "<tt>fabric_egress_setup</tt>" is set to 0.
+</td></tr><tr><td> SDK-34627 
+ </td><td> Sirius: Remove unwanted condition check from loop that builds the 'other' paths for higig 'raw' replication, preventing it automatically trying to rebuild the one provided by the caller.
+</td></tr><tr><td> SDK-34633 
+ </td><td> allow <tt>bcm_cosq_gport_add</tt> to not allocate sysport on bcm88230
+</td></tr><tr><td> SDK-34637 
+ </td><td> The common C idiom to 'loop forever', "for(;;)", executes no statements in body.
+</td></tr><tr><td> SDK-34661 
+ </td><td> Memory leak was happening for LP ports while creating a trunk. This was fixed by properly releasing the memory allocated for LP ports in <tt>pkt_addr_resole</tt>() API of sdk/src/bcmx/tx.c
+</td></tr><tr><td> SDK-34677 
+ </td><td> Copy the 'priority' and 'class id' onto the route structure while setting defip route info.
+</td></tr><tr><td> SDK-34678 SDK-35099
+ </td><td> Fixed improper initialization of <tt>bcm_l3_egress_t</tt> structure.
+</td></tr><tr><td> SDK-34694 SDK-35279
+ </td><td> <tt>bcm_field_qualify_data</tt>() parameters were being serialized over RPC as expected.
+</td></tr><tr><td> SDK-34695 
+ </td><td> CES related DPCs are cleaned up via the <tt>bcm_esw_ces_detach</tt>() method is called via the diag command "ces off". The cleanup call has been added to the rc.soc file.
+</td></tr><tr><td> SDK-34724 
+ </td><td> Correct invalid data access in subport module on BCM56820/BCM56720 devices.
+</td></tr><tr><td> SDK-34728 
+ </td><td> HiGig ports on BCM88230 devices now support auto equalization through "phy" Diag shell commands. For example "phy control hg1 retune"
+</td></tr><tr><td> SDK-34741 
+ </td><td> enable <tt>soc_feature_field_action_redirect_nexthop</tt> for bcm56334.
+</td></tr><tr><td> SDK-34763 
+ </td><td> Use syntonized time instead of synchronized time when calculating toggle time to get rid of previous offset value.
+</td></tr><tr><td> SDK-34770 
+ </td><td> Fixed <tt>bcm_vlan_control_port_set</tt> for MPLS Gport
+</td></tr><tr><td> SDK-34792 
+ </td><td> Clear the Warm Boot stable cache bookkeeping records when attaching a new device to the driver.
+</td></tr><tr><td> SDK-34793 
+ </td><td> Added proper help support for dynamic CLI commands.
+</td></tr><tr><td> SDK-34813 
+ </td><td> SOC property for demand scale should ideally not be used.
+<p>The defect is usage of SOC property is fixed (in case some application is still using it)
+</td></tr><tr><td> SDK-34819 
+ </td><td> The default VLAN should now switch packets properly for BCM5684x
+</td></tr><tr><td> SDK-34820 SDK-35233
+ </td><td> Fixed issue with reuse of of <tt>EGR_MPLS_VC_AND_SWAP_LABEL_TABLE</tt> entry.
+</td></tr><tr><td> SDK-34834 
+ </td><td> Show counters now also checks for XE ports.
+</td></tr><tr><td> SDK-34860 
+ </td><td> Improved internal boundary checks in <tt>bcm_multicast_egress_add</tt>() on BCM88230 devices in order to limit the encapID chain to 256.
+<p>However the defined limit was a s/w constraint. There is no need to impose a s/w constraint. Thus this s/w constraint is now removed.
+</td></tr><tr><td> SDK-34893 SDK-34887
+ </td><td> Eliminated magic number in Linux user mode BDE interface.
+</td></tr><tr><td> SDK-34898 
+ </td><td> Pass -1 for trill port resolve to indicate DVP next hop egress encap id
+</td></tr><tr><td> SDK-34905 
+ </td><td> Fixed system halt when loading linux-bcm-core.ko kernel module on Keystone CPU platforms.
+</td></tr><tr><td> SDK-34911 
+ </td><td> Fixed Trunk ID validation check in bcm_field_qualify_SrcTrunk/DstTrunk qualifier APIs for Trident device.
+Trident device can support up to 1024 front panel trunk groups.
+</td></tr><tr><td> SDK-34978 
+ </td><td> Added support for VLAN OOB filter in BCM KNET API.
+</td></tr><tr><td> SDK-34997 
+ </td><td> fixed serdes and trunk issue with certain bringup API sequence on bm9600
+</td></tr><tr><td> SDK-35014 
+ </td><td> Added diag shell command for WAN "stretch" mode.
+</td></tr><tr><td> SDK-35030 
+ </td><td> 1. Set T bit at appropriate bit position in SGLP field of <tt>L3_ENTRY_IPV4_UNICAST</tt> LMEP
+<p>2. Program <tt>OFFSET_VALID</tt> bit in <tt>ING_SERVICE_PRI_MAP</tt>.
+<p>3. Set correct RX reason code to reflect OamLMDM.
+</td></tr><tr><td> SDK-35054 
+ </td><td> Expanded parameter checks in <tt>bcm_l3_egress_create</tt> to prevent invalid register access.
+</td></tr><tr><td> SDK-35089 
+ </td><td> Adjust Warpcore serdes Tx clock PPM to address EMI failure issue.
+</td></tr><tr><td> SDK-35108 
+ </td><td> Fixed error in <tt>_bcm_tr_mpls_match_key_recover</tt> during recover of MPLS match keys from appropriate <tt>MPLS_ENTRY</tt> entries.
+</td></tr><tr><td> SDK-35116 
+ </td><td> Corrected error in 'while' loop.
+</td></tr><tr><td> SDK-35132 
+ </td><td> Support OAM Loss Measurement/Delay Measurement MEPs created on trunk.
+</td></tr><tr><td> SDK-35156 
+ </td><td> Enabled MSI interrupt in <tt>CMIC_CMC0_PCIE_MISCEL</tt> register.
+</td></tr><tr><td> SDK-35161 
+ </td><td> Clear MMU back pressure status when disabling PFC transmit. This is to ensure MMU to stop transmitting pause frame if it was in XOFF state before disabling PFC.
+</td></tr><tr><td> SDK-35165 
+ </td><td> Updated <tt>bcm_field_entry_prio_set</tt>() API to use slice size while determining the target slice index value.
+This fix is applicable to devices that have physical slices of different sizes i.e Trident and Scorpion device.
+</td></tr><tr><td> SDK-35168 
+ </td><td> Field qualifiers init routine for Scorpion device has been updated to select the source class ID value
+for bcmFieldQualifySrcClassL2 and bcmFieldQualifySrcClassL3 qualifiers.
+</td></tr><tr><td> SDK-35177 
+ </td><td> Enforced the use of value 1 used to indicate TRUE in the phy8481.c driver.
+</td></tr><tr><td> SDK-35213 
+ </td><td> fixed <tt>bcm_cosq_gport_attach</tt> API failure when certain detach/attach API sequence is done on bcm88230
+</td></tr><tr><td> SDK-35288 
+ </td><td> Fixed <tt>bcm_field_stat_set</tt>() API internal implementation for Lookup stage.
+</td></tr><tr><td> SDK-35296 
+ </td><td> Change to allow <tt>bcm_rate_</tt> API to configure higher packet rate [40Gbps].
+</td></tr><tr><td> SDK-35328 
+ </td><td> Fixed the <tt>bcm_tx</tt>() with callback function in pkt-&gt;callback field would cause TX task hang on ROBO chips.
+</td></tr><tr><td> SDK-35339 
+ </td><td> Expanded parameter checks in <tt>bcm_mpls_tunnel_initiator_set</tt> to prevent invalid register access.
+</td></tr><tr><td> SDK-35393 
+ </td><td> Array types that used a macro to specify the array size (such as <tt>bcm_vlan_vector_t</tt>) were treated as a scalar type.
+</td></tr></tbody></table><p><br><hr noshade><a name="resolved5.10.0"></a>
+<h3>Section 5.5:   Resolved Issues for 5.10.0
+</h3>
+<p>The following issues are resolved in version 5.10.0 of the SDK.
+<p><table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b> Number
+ </b></td><td><b> Release Notes For 5.10.0
+</b></td></tr><tr><td> BSP-158 
+ </td><td> Discarding the received packets that corrupted when the RX overflow event happened of Keystone GMAC core.
+</td></tr><tr><td> SDK-25142 
+ </td><td> Added support for out of band HCFC support for BCM88230 devices
+</td></tr><tr><td> SDK-25188 
+ </td><td> Added CINT function <tt>cint_timer_get</tt>() to get the current value of the CINT timer.
+Changed CINT functions <tt>cint_timer_start</tt>() and <tt>cint_timer_stop</tt>() to provide a more useful programming interface.
+</td></tr><tr><td> SDK-28627 
+ </td><td> For small memory configuration, allocate 1/4 of counter capacity to egress counters.
+</td></tr><tr><td> SDK-28797 
+ </td><td> Implemented performance optimization for LPM route operations.
+</td></tr><tr><td> SDK-29933 
+ </td><td> <tt>bcm_stat_multi_get</tt>() and <tt>bcm_stat_multi_get32</tt>() are now supported on appropriate XCORE devices.
+</td></tr><tr><td> SDK-30232 
+ </td><td> Added multipath shaper support for BCM88230 devices
+</td></tr><tr><td> SDK-30612 
+ </td><td> BCM 88025: Added support for PSC message transmission and reception in micro-code. Burst and slow-rate modes supported for TX. A hold-down timer is implemented on RX to silently drop all but the first received packet in a burst.
+</td></tr><tr><td> SDK-30698 
+ </td><td> Use hardware <tt>L2_BULK</tt> operation for matching mac or virtual port destination instead of software traverse on BCM5684x.
+</td></tr><tr><td> SDK-30775 
+ </td><td> Customer may configure <tt>RETURN_VALUE</tt> during SwitchControl Set operation:
+<tt>bcm_switch_control_set</tt>(0, bcmSwitchL3HostAsRouteReturnValue, customer_specified_RVAL);
+<p>1. <tt>bcm_l3_host_add</tt> API return "customer_specified_RVAL" when HOST entry is added to ROUTE.
+2. <tt>bcm_l3_host_delete</tt> API return "customer_specified_RVAL" when HOST entry is deleted from ROUTE.
+3. <tt>bcm_l3_host_add</tt> API with flag=<tt>BCM_L3_REPLACE</tt> return "customer_specified_RVAL" when ROUTE entry gets migrated to HOST 
+</td></tr><tr><td> SDK-30870 
+ </td><td> Add <tt>bcm_cosq_gport_mapping_set</tt>/get API for internal priority to cos queue mapping.
+</td></tr><tr><td> SDK-30935 
+ </td><td> Updated <tt>bcm_field_data_packet_format_t</tt> structure members variables <tt>fibre_chan_outer</tt> and <tt>fibre_chan_inner</tt> from uint8 to uint16 type.
+To fix compilation warning when these variables are assigned <tt>BCM_FIELD_DATA_FORMAT_FIBRE_CHAN_ANY</tt> (0xffff) value.
+</td></tr><tr><td> SDK-31175 
+ </td><td> Add packet buffer drop counter to statistics calculations for XGS3 devices.
+</td></tr><tr><td> SDK-31219 
+ </td><td> Add MMU config variables for BCM5684x.
+</td></tr><tr><td> SDK-31253 
+ </td><td> Added configuration property spn_QE_LAG_UC_REDIST that can be used to operate BCM88230 devices in a mode where BCM88230 replicates unicast across aggregates and squelches locally, effectively overriding frame distribution on aggregates so LBID maps round-robin to member targets.
+</td></tr><tr><td> SDK-31427 
+ </td><td> Added bcmPortControlPFCRefreshTime for configuring and retreiving PFC refresh timer.
+</td></tr><tr><td> SDK-31453 
+ </td><td> A new configuration property, "<tt>qe_thresh_drop_limit</tt>", now controls initialization of the <tt>eg_fd_fifo_thresh</tt> table on BCM88230 devices. A value of 0-8 will automatically set the dynamic bit to 1 and the <tt>FIFO_THRESH</tt> field to the value of the soc property. A value of 9-0x7fff will leave the dynamic bit set to 0 and set the <tt>FIFO_THRESH</tt> to the value of the soc property. Any other value will result in the dynamic bit set to 0 and the <tt>FIFO_THRESH</tt> field set to 0x7fff.
+</td></tr><tr><td> SDK-31507 
+ </td><td> <tt>BCM_COSQ_GPORT_ATTACH_ID_SYSPORT_SET</tt>(<tt>attach_id</tt>,sysport) will now create an <tt>attach_id</tt> using a sysport on BCM88230 devices.
+</td></tr><tr><td> SDK-31727 
+ </td><td> Added new API to expose Flexible Service counters
+</td></tr><tr><td> SDK-31749 
+ </td><td> Added documentation for PortControl PFCRefreshTime.
+</td></tr><tr><td> SDK-31752 
+ </td><td> added PFC support for sirius C0 and B0
+</td></tr><tr><td> SDK-32013 
+ </td><td> Added <tt>cint_interpreter_initialize_register</tt>(), <tt>cint_interpreter_initialize_unregister</tt>() to allow the addition of custom CINT initialization code.
+</td></tr><tr><td> SDK-32030 
+ </td><td> IPMC code no longer keeps L3 entry h/w index cached with it and instead keeps s/w copies of the key data along with getting hit bit info from the L3 interface as needed.
+</td></tr><tr><td> SDK-32053 
+ </td><td> Updated <tt>_field_xx_action_params_check</tt>() routine in SDK to return error when Invalid egress object ID parameter value is passed for bcmFieldActionL3ChangeVlan,
+bcmFieldActionL3ChangeMacDa and bcmFieldActionL3Switch actions.
+</td></tr><tr><td> SDK-32071 
+ </td><td> Release Notes
+</td></tr><tr><td> SDK-32085 
+ </td><td> Corrected several Typos in API guide and platforms guide
+</td></tr><tr><td> SDK-32100 
+ </td><td> Counter collection in XGS devices is accelerated by caching some memory decoding information during driver initialization to streamline the accumulation of flexible statistics and FP counters.
+</td></tr><tr><td> SDK-32103 
+ </td><td> <tt>bcm_oam_endpoint_create</tt>() API can now support CCM RX enabled endpoint creation over Trunks for Enduro and Chariot devices.
+</td></tr><tr><td> SDK-32187 
+ </td><td> L2 Multicast packets matching the OUI 01-00-5E was incorrectly marked as an Ipv4 packet. This is fixed now.
+</td></tr><tr><td> SDK-32215 
+ </td><td> Added support for <tt>fabric_control_set</tt>/get API to control number of ingress schedulers and ingress scheduler update intervals on each level for BCM88230 devices.
+</td></tr><tr><td> SDK-32353 
+ </td><td> Added support for VLAN tag priority and cfi fields actions in BCM56840.
+</td></tr><tr><td> SDK-32493 
+ </td><td> BCM88130 initialization code was adjusted to power up the relevant internal blocks if the device was configured to operate as a pure crossbar device.
+</td></tr><tr><td> SDK-32565 
+ </td><td> Enhanced <tt>bcm_cosq_gport_attach_get</tt>() to be able to retrieve data for egress schedulers on BCM88230 family of devices even when operating in 176 port mode
+</td></tr><tr><td> SDK-32700 
+ </td><td> New BCMX field qualifier APIs:
+  bcmx_field_qualify_SrcVirtualPortValid()
+  bcmx_field_qualify_SrcVirtualPortValid_get()
+</td></tr><tr><td> SDK-32701 
+ </td><td> Added new qualifier bcmFieldQualifySrcVirtualPortValid and related apis bcm_field_qualify_SrcVirtualPortValid() and bcm_field_qualify_SrcVirtualPortValid_get() for Trident device.
+</td></tr><tr><td> SDK-32703 
+ </td><td> Added support for new field qualifier API bcm_field_qualify_SrcVirtualPortValid() and bcm_field_qualify_SrcVirtualPortValid_get() for Trident device.
+</td></tr><tr><td> SDK-32712 
+ </td><td> Added new KNET APIs for data structure initialization.
+</td></tr><tr><td> SDK-32748 
+ </td><td> When BCM88130 is used in crossbar-only mode, don't access tables that are not needed.
+</td></tr><tr><td> SDK-32757 
+ </td><td> QE-2000 egress shaper might be left in blocking state during shaper removal under certain conditions.
+</td></tr><tr><td> SDK-32782 
+ </td><td> <tt>bcm_init</tt>() could fail on BCM88130 devices in some system designs due to time out in BCM88130 serdes MDIO write operations.
+</td></tr><tr><td> SDK-32843 
+ </td><td> Added <tt>bcm_st_current_db_get</tt>(void) and <tt>bcm_st_discovery_db_get</tt>(void) to return consistent copies of the stktask current and discovery CPU databases.
+</td></tr><tr><td> SDK-32849 
+ </td><td> With Per-Port MPLS-Label-scope, multiple next-hops with different out-vlan can have the same Tunnel-label. In such a scenario, multiple <tt>EGR_L3_INTF</tt> can point to the same <tt>EGR_MPLS_TUNNEL</tt> entry. Added reference count for Egress_Tunnel_Labels that have per-port MPLS label-scope. The <tt>tunnel_entry</tt> can be deleted only when it's <tt>reference_count</tt> = 0;
+</td></tr><tr><td> SDK-32901 
+ </td><td> Added bcmCosqControlFlowControlState in <tt>bcm_cosq_control_set</tt>() to allow application to set flow control state manually for BCM88230 family of devices
+</td></tr><tr><td> SDK-32998 
+ </td><td> BCM88025 <tt>LU_RTC_SUB_NS_INC</tt> hardcoded for HPP 375 mhz operation.
+</td></tr><tr><td> SDK-33006 
+ </td><td> BCM 88025, The register, <tt>LU_RTC_SUB_NS_INC</tt> will be initialized based on HPP frequency. This fixes an issue with incorrect Delay Measure (DMR &amp; 1DM) calculations.
+</td></tr><tr><td> SDK-33050 
+ </td><td> Added 'phy prbs' command support to CLI for QE2000 device. To use, enable PRBS at far end Polaris device via command 'phy prbs sfi set mode=hc' then at near end QE2000 'phy prbs sfi set' then use get command on both ends to check PRBS status.
+</td></tr><tr><td> SDK-33053 
+ </td><td> Fix <tt>bcm_l2_cache</tt> API on BCM5684x.
+</td></tr><tr><td> SDK-33068 
+ </td><td> <tt>bcm_bm9600_ability_matching_speed_set</tt> didn't properly derive node from port.
+</td></tr><tr><td> SDK-33125 
+ </td><td> Missing break statement in switch {} block in <tt>phy_combo65_adv_local_set</tt>
+</td></tr><tr><td> SDK-33265 
+ </td><td> RC load for ROBO chips is now mandatory
+</td></tr><tr><td> SDK-33322 
+ </td><td> The configuration of non-local mirror tunnel destinations on BCM5684x was incorrect. The configuration is now fixed, and the mirror module documentation has been updated to describe the API behavior for BCM5684x-only vs. mixed device stacked systems.
+</td></tr><tr><td> SDK-33326 
+ </td><td> Within L3IngressInterfaceMapSet mode fixed <tt>bcm_vlan_control_vlan_set</tt>/get API to block the setting of <tt>L3_IIF</tt>.VRF
+</td></tr><tr><td> SDK-33472 
+ </td><td> Added support for <tt>BCM_TRUNK_MEMBER_UNICAST_EGRESS_DISABLE</tt> flag on XGS3 devices.
+</td></tr><tr><td> SDK-33474 
+ </td><td> Added support for <tt>BCM_TRUNK_MEMBER_UNICAST_EGRESS_DISABLE</tt> flag on XGS3 devices.
+</td></tr><tr><td> SDK-33569 
+ </td><td> During <tt>bcm_l2_addr_freeze</tt>/thaw operations, do not cache or restore the virtual port CML information if no virtual ports are presently configured on the device.
+</td></tr><tr><td> SDK-34427 
+ </td><td> Support the <tt>bcm_field_stat_create_id</tt>() function for ROBO chips.
+</td></tr><tr><td> SDK-34563 
+ </td><td> Improved parameter validation in <tt>bcm_cosq_gport_statistic_get</tt>/set() functions to avoid potential segmentation faults when an illegal variable configuration is used on BCM88230 devices.
+</td></tr></tbody></table><p><br><hr noshade><a name="platforms"></a>
+<h3>Section 5.6:   Device and Platform Support
+</h3>
+<p>The section describes all devices, platforms, and operating
+systems that are supported by this release. 
+<br><hr noshade><a name="devices"></a>
+<h3>Section 5.6.1:   Switch Devices
+</h3>
+<p><h3>Table 9:   Switch Devices
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Family</b></td><td><b>  Devices</b></td><td><b> Description
+</b></td></tr><tr><td> BCM5324
+</td><td> BCM5324 A0
+</td><td> Single-Chip L2+ Managed Switch with 24 10/100 Ports + 2 GbE Ports
+</td></tr><tr><td></td><td> BCM5324 A1
+</td><td></td></tr><tr><td></td><td> BCM5324 A2
+</td><td></td></tr><tr><td> BCM5347
+</td><td> BCM5347 A0
+</td><td> Managed Switch with 24 10/100 Ports + Four GbE Ports
+</td></tr><tr><td></td><td> BCM5347 A1
+</td><td></td></tr><tr><td> BCM5348
+</td><td> BCM5348 A0
+</td><td> Single-Chip L2+ Managed Switch with 48 10/100 Ports + Four GbE Ports
+</td></tr><tr><td></td><td> BCM5348 A1
+</td><td></td></tr><tr><td> BCM5389
+</td><td> BCM5389 A0
+</td><td> 8-Port GbE Switch with Integrated SerDes
+</td></tr><tr><td></td><td> BCM5389 A1
+</td><td></td></tr><tr><td> BCM5395
+</td><td> BCM5395 A0
+</td><td> Multiport Gigabit Ethernet Switch
+</td></tr><tr><td> BCM5396
+</td><td> BCM5396 A0
+</td><td> 16-Port GbE Switch with Integrated SerDes
+</td></tr><tr><td> BCM5397
+</td><td> BCM5397 A0
+</td><td> 6-Port GbE Switch With 5 Integrated PHYs and LoopDTech
+</td></tr><tr><td> BCM5398
+</td><td> BCM5398 A0
+</td><td> 9-Port GbE Switch With 8 Integrated PHYs and LoopDTech
+</td></tr><tr><td> BCM53101
+</td><td> BCM53101 A0
+</td><td> 5-Port Fast Ethernet Managed Switch + 1 Fast Ethernet WAN port
+</td></tr><tr><td></td><td> BCM53101 B0
+</td><td></td></tr><tr><td> BCM53115
+</td><td> BCM53115 A0
+</td><td> 5-Port GbE Managed Switch + 1 Gigabit WAN port with integrated serdes
+</td></tr><tr><td></td><td> BCM53115 A1
+</td><td></td></tr><tr><td></td><td> BCM53115 B0
+</td><td></td></tr><tr><td></td><td> BCM53115 B1
+</td><td></td></tr><tr><td></td><td> BCM53115 C0
+</td><td></td></tr><tr><td> BCM53118
+</td><td> BCM53118 A0
+</td><td> 8-Port Gigabit Ethernet Switch
+</td></tr><tr><td></td><td> BCM53118 B0
+</td><td></td></tr><tr><td></td><td> BCM53118 B1
+</td><td></td></tr><tr><td> BCM53125
+</td><td> BCM53125 A0
+</td><td> 5-Port Gigabit Ethernet Switch with 1 Gigabit WAN port and 8051 processor
+</td></tr><tr><td></td><td> BCM53125 B0
+</td><td></td></tr><tr><td> BCM53128
+</td><td> BCM53128 A0
+</td><td> 8-Port Gigabit Ethernet Switch with embedded 8051 processor
+</td></tr><tr><td></td><td> BCM53128 B0
+</td><td></td></tr><tr><td> BCM53242
+</td><td> BCM53242 A0
+</td><td> Managed Switch with 24 FE Ports + 2 GbE Interface
+</td></tr><tr><td></td><td> BCM53242 B0
+</td><td></td></tr><tr><td></td><td> BCM53242 B1
+</td><td></td></tr><tr><td></td><td> BCM53262 A0
+</td><td> Managed Switch with 24 FE Ports + 4 GbE Interface
+</td></tr><tr><td></td><td> BCM53262 B0
+</td><td></td></tr><tr><td></td><td> BCM53262 B1
+</td><td></td></tr><tr><td> BCM53280
+</td><td> BCM53282 A0
+</td><td> 8-Port Fast Ethernet + 2-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM53282 B0
+</td><td></td></tr><tr><td></td><td> BCM53282 B1
+</td><td></td></tr><tr><td></td><td> BCM53282 B2
+</td><td></td></tr><tr><td></td><td> BCM53283 A0
+</td><td> 16-Port Fast Ethernet + 2-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM53283 B0
+</td><td></td></tr><tr><td></td><td> BCM53283 B1
+</td><td></td></tr><tr><td></td><td> BCM53283 B2
+</td><td></td></tr><tr><td></td><td> BCM53284 A0
+</td><td> 24-Port Fast Ethernet + 2-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM53284 B0
+</td><td></td></tr><tr><td></td><td> BCM53284 B1
+</td><td></td></tr><tr><td></td><td> BCM53284 B2
+</td><td></td></tr><tr><td></td><td> BCM53286 A0
+</td><td> 24-Port Fast Ethernet + 4-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM53286 B0
+</td><td></td></tr><tr><td></td><td> BCM53286 B1
+</td><td></td></tr><tr><td></td><td> BCM53286 B2
+</td><td></td></tr><tr><td></td><td> BCM53288 A0
+</td><td> 24-Port Fast Ethernet + 2-Port Gigabit Ethernet Multilayer Switch
+   with one 2.5GbE Uplink Port
+</td></tr><tr><td></td><td> BCM53288 B0
+</td><td></td></tr><tr><td></td><td> BCM53288 B1
+</td><td></td></tr><tr><td></td><td> BCM53288 B2
+</td><td></td></tr><tr><td> BCM53300
+</td><td> BCM53300 A0
+</td><td> Managed 24-port L2 Switch
+</td></tr><tr><td></td><td> BCM53300 A1
+</td><td></td></tr><tr><td></td><td> BCM53301 A0
+</td><td> Managed 16-port L2 Switch
+</td></tr><tr><td></td><td> BCM53301 A1
+</td></tr><tr><td></td><td> BCM53302 A0
+</td><td> Managed 24-port L2 Switch
+</td></tr><tr><td></td><td> BCM53302 A1
+</td><td></td></tr><tr><td> BCM53310
+</td><td> BCM53312 A0
+</td><td> BCM53312 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53312 B0
+</td><td></td></tr><tr><td></td><td> BCM53313 A0
+</td><td> BCM53313 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53313 B0
+</td><td></td></tr><tr><td></td><td> BCM53314 A0
+</td><td> BCM53314 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53314 B0
+</td><td></td></tr><tr><td> BCM53320
+</td><td> BCM53322 A0
+</td><td> BCM53322 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53323 A0
+</td><td> BCM53323 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53324 A0
+</td><td> BCM53324 Integrated Multilayer Switch and CPU
+</td></tr><tr><td> BCM53600
+</td><td> BCM53602 A0
+</td><td> 8-Port Fast Ethernet + 3-Port Gigabit Ethernet Switch with one 1/2G-EPON ONU MAC/SerDes
+   and embedded 600MHz MIPS32 74K processor
+</td></tr><tr><td></td><td> BCM53603 A0
+</td><td> 16-Port Fast Ethernet + 3-Port Gigabit Ethernet Switch with one 1/2G-EPON ONU MAC/SerDes
+   and embedded 600MHz MIPS32 74K processor
+</td></tr><tr><td></td><td> BCM53604 A0
+</td><td> 24-Port Fast Ethernet + 3-Port Gigabit Ethernet Switch with one 1/2G-EPON ONU MAC/SerDes
+   and embedded 600MHz MIPS32 74K processor
+</td></tr><tr><td></td><td> BCM53606 A0
+</td><td> 24-Port FE with S3MII interface + 3-Port Gigabit Ethernet Switch with one 1/2G-EPON ONU MAC/SerDes
+   and embedded 600MHz MIPS32 74K processor
+</td></tr><tr><td> BCM53710
+</td><td> BCM53714 A0
+</td><td> BCM56714 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53714 A1
+</td><td></td></tr><tr><td></td><td> BCM53714 A2
+</td><td></td></tr><tr><td></td><td> BCM53716 A0
+</td><td> BCM56716 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53716 A1
+</td><td></td></tr><tr><td></td><td> BCM53716 A2
+</td><td></td></tr><tr><td></td><td> BCM53718 A0
+</td><td> BCM56718 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM53718 A1
+</td><td></td></tr><tr><td></td><td> BCM53718 A2
+</td><td></td></tr><tr><td> BCM53720
+</td><td> BCM53724 A0
+</td><td> Managed 24-port L2 Switch with Integrated CPU
+</td></tr><tr><td></td><td> BCM53724 B0
+</td><td></td></tr><tr><td></td><td> BCM53726 A0
+</td><td> Managed 24-port L2 Switch with Integrated CPU
+</td></tr><tr><td></td><td> BCM53726 B0
+</td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM5650
+</td><td> BCM5650 A0
+</td><td> 24-Port BCM5650 Integrated Multi-Layer Switch
+</td></tr><tr><td></td><td> BCM5650 B0
+</td><td></td></tr><tr><td></td><td> BCM5650 C0
+</td><td></td></tr><tr><td></td><td> BCM5655 A0
+</td><td> 48-Port BCM5655 Integrated Multi-Layer Switch
+</td></tr><tr><td></td><td> BCM5655 B0
+</td><td></td></tr><tr><td> BCM5665
+</td><td> BCM5665 A0
+</td><td> 48-Port BCM5665 Integrated Multi-Layer Switch
+</td></tr><tr><td></td><td> BCM5665 B0
+</td><td></td></tr><tr><td> BCM5670
+</td><td> BCM5670 A0
+</td><td> BCM5670 8-Port, 160 Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5670 A1
+</td><td></td></tr><tr><td></td><td> BCM5671 A0
+</td><td> BCM5671 4-Port, 80-Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5671 A1
+</td><td></td></tr><tr><td></td><td> BCM5671 A2
+</td><td></td></tr><tr><td> BCM5673
+</td><td> BCM5673 A0
+</td><td> 10 Gigabit Ethernet/HiGig Multilayer Switch
+</td></tr><tr><td></td><td> BCM5673 A1
+</td><td></td></tr><tr><td></td><td> BCM5673 A2
+</td><td></td></tr><tr><td> BCM5674
+</td><td> BCM5674 A0
+</td><td> Multilayer 2-Port 10 Gigabit Ethernet and HiGig+ Switch
+</td></tr><tr><td> BCM5675
+</td><td> BCM5675 A0
+</td><td> 8-Port, 192-Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5675 A1
+</td><td></td></tr><tr><td></td><td> BCM5676 A0
+</td><td> 4-Port, 96-Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5676 A1
+</td><td></td></tr><tr><td> BCM5690
+</td><td> BCM5690 A0
+</td><td> Scalable 12-Port Gigabit Ethernet MultiLayer Switch
+</td></tr><tr><td></td><td> BCM5690 A1
+</td><td></td></tr><tr><td></td><td> BCM5690 A2
+</td><td></td></tr><tr><td></td><td> BCM5691 A0
+</td><td> 12-Port Gigabit Ethernet MultiLayer Switch
+</td></tr><tr><td></td><td> BCM5691 A1
+</td><td></td></tr><tr><td></td><td> BCM5691 A2
+</td><td></td></tr><tr><td></td><td> BCM5692 A0
+</td><td> Scalable 12-Port Gigabit Ethernet Layer 2 Switch
+</td></tr><tr><td></td><td> BCM5692 A1
+</td><td></td></tr><tr><td></td><td> BCM5692 A2
+</td><td></td></tr><tr><td></td><td> BCM5693 A0
+</td><td> 12-Port Gigabit Ethernet Layer 2 Switch
+</td></tr><tr><td></td><td> BCM5693 A1
+</td><td></td></tr><tr><td></td><td> BCM5693 A2
+</td><td></td></tr><tr><td> BCM5695
+</td><td> BCM5695 A0
+</td><td> MultiLayer 12-Port Gigabit Ethernet Stackable Switch
+</td></tr><tr><td></td><td> BCM5695 A1
+</td><td></td></tr><tr><td></td><td> BCM5695 B0
+</td><td></td></tr><tr><td></td><td> BCM5696 A0
+</td><td> Multilayer 12-Port Gigabit Ethernet Switch
+</td></tr><tr><td></td><td> BCM5696 A1
+</td><td></td></tr><tr><td></td><td> BCM5696 B0
+</td><td></td></tr><tr><td></td><td> BCM5697 A0
+</td><td> 12-Port Gigabit Ethernet Stackable Layer 2+ Switch
+</td></tr><tr><td></td><td> BCM5697 A1
+</td><td></td></tr><tr><td></td><td> BCM5697 B0
+</td><td></td></tr><tr><td></td><td> BCM5698 A0
+</td><td> 12-Port Gigabit Ethernet Layer 2+ Switch
+</td></tr><tr><td></td><td> BCM5698 A1
+</td><td></td></tr><tr><td></td><td> BCM5698 B0
+</td><td></td></tr><tr><td> BCM56010
+</td><td> BCM56014 A0
+</td><td> 24-Port Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56014 A1
+</td><td></td></tr><tr><td></td><td> BCM56014 A2
+</td><td></td></tr><tr><td></td><td> BCM56018 A0
+</td><td> 48-Port Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56018 A1
+</td><td></td></tr><tr><td></td><td> BCM56018 A2
+</td><td></td></tr><tr><td></td><td> BCM56018 A1
+</td><td> 48-Port Integrated Multilayer Switch and CPU
+</td></tr><tr><td> BCM56020
+</td><td> BCM56024 A0
+</td><td> 24-Port Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56024 B0
+</td><td></td></tr><tr><td></td><td> BCM56025 A0
+</td><td> 24-Port Integrated L2 Switch and CPU
+</td></tr><tr><td></td><td> BCM56025 B0
+</td><td></td></tr><tr><td></td><td> BCM56026 A0
+</td><td> 24-Port Integrated L2 Switch and CPU
+</td></tr><tr><td></td><td> BCM56026 B0
+</td><td></td></tr><tr><td> BCM56100
+</td><td> BCM56100 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56100 A1
+</td><td></td></tr><tr><td></td><td> BCM56101 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch with
+One 10-Gigabit Ethernet/HiGig Port
+</td></tr><tr><td></td><td> BCM56101 A1
+</td><td></td></tr><tr><td></td><td> BCM56102 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch with
+Two 10-Gigabit Ethernet/HiGig Ports
+</td></tr><tr><td></td><td> BCM56102 A1
+</td><td></td></tr><tr><td></td><td> BCM56105 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch
+</td></tr><tr><td></td><td> BCM56105 A1
+</td><td></td></tr><tr><td></td><td> BCM56106 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch with One
+10-Gigabit Ethernet/HiGig Port
+</td></tr><tr><td></td><td> BCM56106 A1
+</td><td></td></tr><tr><td></td><td> BCM56107 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch with Two
+10-Gigabit Ethernet/HiGig Ports
+</td></tr><tr><td></td><td> BCM56107 A1
+</td><td></td></tr><tr><td> BCM56110
+</td><td> BCM56110 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56111 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch with
+One 10-Gigabit Ethernet/HiGig Port
+</td></tr><tr><td></td><td> BCM56112 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Multilayer Switch with
+Two 10-Gigabit Ethernet/HiGig Ports
+</td></tr><tr><td></td><td> BCM56115 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch
+</td></tr><tr><td></td><td> BCM56116 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch with One
+10-Gigabit Ethernet/HiGig Port
+</td></tr><tr><td></td><td> BCM56117 A0
+</td><td> 24-Port Fast Ethernet and 2-Port Gigabit Ethernet Layer 2 Switch with Two
+10-Gigabit Ethernet/HiGig Ports
+</td></tr><tr><td> BCM56130
+</td><td> BCM56132 A0
+</td><td> 24-Port Fast Ethernet Multilayer Switch with Two 10-GbE/HiGig2 and
+Two 1G/2.5Gb Uplink Ports 
+</td></tr><tr><td></td><td> BCM56132 B0
+</td><td></td></tr><tr><td></td><td> BCM56134 A0
+</td><td> 24-Port Fast Ethernet Multilayer Switch with four 1G/2.5Gb Uplink Ports
+</td></tr><tr><td></td><td> BCM56134 B0
+</td><td></td></tr><tr><td> BCM56140
+</td><td> BCM56140 A0
+</td><td> 24-Port Gigabit Ethernet/6-Port SGMII GbE Multilayer switch with combination of two/four 1G/2.5/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56142 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer switch with combination of two/four 1G/2.5/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56143 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer switch with combination of two/four 1G/2.5/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56144 A0
+</td><td> 16-Port Gigabit Ethernet Multilayer switch with four 1G/2.5HG Uplink Ports
+</td></tr><tr><td></td><td> BCM56146 A0
+</td><td> 24-Port Fast-Ethernet Multilayer switch with four 2.5HG Uplink Ports
+</td></tr><tr><td></td><td> BCM56147 A0
+</td><td> 24-Port Fast-Ethernet Multilayer switch with combination of one/two/four 1G/2.5G/10/12/13HG Uplink Ports
+</td></tr><tr><td> BCM56210
+</td><td> BCM56212 A0
+</td><td></td></tr><tr><td></td><td> BCM56212 A1
+</td><td></td></tr><tr><td></td><td> BCM56212 A2
+</td><td></td></tr><tr><td></td><td> BCM56213 A0
+</td><td></td></tr><tr><td></td><td> BCM56213 A1
+</td><td></td></tr><tr><td></td><td> BCM56213 A2
+</td><td></td></tr><tr><td></td><td> BCM56214 A0
+</td><td> BCM56214 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56214 A1
+</td><td></td></tr><tr><td></td><td> BCM56214 A2
+</td><td></td></tr><tr><td></td><td> BCM56215 A0
+</td><td></td></tr><tr><td></td><td> BCM56215 A1
+</td><td></td></tr><tr><td></td><td> BCM56215 A2
+</td><td></td></tr><tr><td></td><td> BCM56216 A0
+</td><td> BCM56216 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56216 A1
+</td><td></td></tr><tr><td></td><td> BCM56216 A2
+</td><td></td></tr><tr><td></td><td> BCM56217 A0
+</td><td></td></tr><tr><td></td><td> BCM56217 A1
+</td><td></td></tr><tr><td></td><td> BCM56217 A2
+</td><td></td></tr><tr><td></td><td> BCM56218 A0
+</td><td> BCM56218 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56218 A1
+</td><td></td></tr><tr><td></td><td> BCM56218 A2
+</td><td></td></tr><tr><td></td><td> BCM56219 A0
+</td><td> BCM56219 Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56219 A1
+</td><td></td></tr><tr><td></td><td> BCM56219 A2
+</td><td></td></tr><tr><td> BCM56220
+</td><td> BCM56224 A0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56224 B0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56225 A0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56225 B0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56226 A0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56226 B0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56227 A0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56227 B0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56228 A0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56228 B0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56229 A0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56229 B0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td> BCM56300
+</td><td> BCM56300 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56300 A1
+</td><td></td></tr><tr><td></td><td> BCM56300 B0
+</td><td></td></tr><tr><td></td><td> BCM56300 B1
+</td><td></td></tr><tr><td></td><td> BCM56301 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56301 A1
+</td><td></td></tr><tr><td></td><td> BCM56301 B0
+</td><td></td></tr><tr><td></td><td> BCM56301 B1
+</td><td></td></tr><tr><td></td><td> BCM56302 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Two 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56302 A1
+</td><td></td></tr><tr><td></td><td> BCM56302 B0
+</td><td></td></tr><tr><td></td><td> BCM56302 B1
+</td><td></td></tr><tr><td></td><td> BCM56303 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Three 10 Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56303 A1
+</td><td></td></tr><tr><td></td><td> BCM56303 B0
+</td><td></td></tr><tr><td></td><td> BCM56303 B1
+</td><td></td></tr><tr><td></td><td> BCM56304 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Four 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56304 A1
+</td><td></td></tr><tr><td></td><td> BCM56304 B0
+</td><td></td></tr><tr><td></td><td> BCM56304 B1
+</td><td></td></tr><tr><td></td><td> BCM56305 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56305 A1
+</td><td></td></tr><tr><td></td><td> BCM56305 B0
+</td><td></td></tr><tr><td></td><td> BCM56305 B1
+</td><td></td></tr><tr><td></td><td> BCM56306 A0
+</td><td> 16 Port Gigabit Ethernet Switch
+</td></tr><tr><td></td><td> BCM56306 A1
+</td><td></td></tr><tr><td></td><td> BCM56306 B0
+</td><td></td></tr><tr><td></td><td> BCM56306 B1
+</td><td></td></tr><tr><td></td><td> BCM56307 A0
+</td><td> 24-Port GE L2 Switch with Two 10 GE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56307 A1
+</td><td></td></tr><tr><td></td><td> BCM56307 B0
+</td><td></td></tr><tr><td></td><td> BCM56307 B1
+</td><td></td></tr><tr><td></td><td> BCM56308 A0
+</td><td> 24-Port GE L2 Switch with Three 10 GE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56308 A1
+</td><td></td></tr><tr><td></td><td> BCM56308 B0
+</td><td></td></tr><tr><td></td><td> BCM56308 B1
+</td><td></td></tr><tr><td></td><td> BCM56309 A0
+</td><td> 24-Port GE L2 Switch with Four 10 GE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56309 A1
+</td><td></td></tr><tr><td></td><td> BCM56309 B0
+</td><td></td></tr><tr><td></td><td> BCM56309 B1
+</td><td></td></tr><tr><td> BCM56310
+</td><td> BCM56310 A0
+</td><td> BCM56310 Series 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig+
+Uplink Ports
+</td></tr><tr><td></td><td> BCM56311 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56312 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Two 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56313 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Three 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56314 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch with Four 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56315 A0
+</td><td> BCM56310 Series 24-Port GbE Layer 2 Switch with Four 10-GbE/HiGig+
+Uplink Ports
+</td></tr><tr><td></td><td> BCM56316 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56317 A0
+</td><td> 24-Port Gigabit Ethernet Layer 2 Switch with Two 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56318 A0
+</td><td> 24-Port Gigabit Ethernet Layer 2 Switch with Three 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56319 A0
+</td><td> 24-Port Gigabit Ethernet Layer 2 Switch with Four 10-Gigabit
+Ethernet/HiGig+ Ports
+</td></tr><tr><td> BCM56320
+</td><td> BCM56320 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56320 B0
+</td><td></td></tr><tr><td></td><td> BCM56321 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56321 B0
+</td><td></td></tr><tr><td> BCM56330
+</td><td> BCM56331 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 2.5GbE Uplink Ports
+</td></tr><tr><td></td><td> BCM56331 B0
+</td><td></td></tr><tr><td></td><td> BCM56333 A0
+</td><td> 16-Port GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56333 B0
+</td><td></td></tr><tr><td></td><td> BCM56334 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56334 B0
+</td><td></td></tr><tr><td></td><td> BCM56338 A0
+</td><td> 8-Port GbE Multilayer Switch with two 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56338 B0
+</td><td></td></tr><tr><td> BCM56440
+</td><td> BCM56440 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/Hig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56441 A0
+</td><td> 8-Port GbE Multilayer Switch with Two 10-GbE/Hig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56442 A0
+</td><td> 16-Port GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56443 A0
+</td><td> 8-Port 2.5GbE Multilayer Switch with Two 10-GbE/Hig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56445 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/Hig2 Uplink ports pin compatible with BCM56334
+</td></tr><tr><td></td><td> BCM56446 A0
+</td><td> 8-Port GbE Multilayer Switch with Two 10-GbE/Hig2 Uplink ports pin compatibe with BCM56338
+</td></tr><tr><td></td><td> BCM56447 A0
+</td><td> 16-Port GbE Multilayer Switch pin compatible with BCM56333
+</td></tr><tr><td></td><td> BCM56448 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 1GbE/ One 2.5G Uplink ports
+</td></tr><tr><td> BCM56500
+</td><td> BCM56500 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56500 A1
+</td><td></td></tr><tr><td></td><td> BCM56500 B0
+</td><td></td></tr><tr><td></td><td> BCM56500 B1
+</td><td></td></tr><tr><td></td><td> BCM56500 B2
+</td><td></td></tr><tr><td></td><td> BCM56501 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56501 A1
+</td><td></td></tr><tr><td></td><td> BCM56501 B0
+</td><td></td></tr><tr><td></td><td> BCM56501 B1
+</td><td></td></tr><tr><td></td><td> BCM56501 B2
+</td><td></td></tr><tr><td></td><td> BCM56502 A0
+</td><td> 24-Port GbE Multilayer Switch with Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56502 A1
+</td><td></td></tr><tr><td></td><td> BCM56502 B0
+</td><td></td></tr><tr><td></td><td> BCM56502 B1
+</td><td></td></tr><tr><td></td><td> BCM56502 B2
+</td><td></td></tr><tr><td></td><td> BCM56503 A0
+</td><td> 24-Port GbE Multilayer Switch with Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56503 A1
+</td><td></td></tr><tr><td></td><td> BCM56503 B0
+</td><td></td></tr><tr><td></td><td> BCM56503 B1
+</td><td></td></tr><tr><td></td><td> BCM56503 B2
+</td><td></td></tr><tr><td></td><td> BCM56504 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56504 A1
+</td><td></td></tr><tr><td></td><td> BCM56504 B0
+</td><td></td></tr><tr><td></td><td> BCM56504 B1
+</td><td></td></tr><tr><td></td><td> BCM56504 B2
+</td><td></td></tr><tr><td></td><td> BCM56505 A0
+</td><td> 24-Port GbE Layer 2 Switch
+</td></tr><tr><td></td><td> BCM56505 A1
+</td><td></td></tr><tr><td></td><td> BCM56505 B0
+</td><td></td></tr><tr><td></td><td> BCM56505 B1
+</td><td></td></tr><tr><td></td><td> BCM56505 B2
+</td><td></td></tr><tr><td></td><td> BCM56506 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56506 A1
+</td><td></td></tr><tr><td></td><td> BCM56506 B0
+</td><td></td></tr><tr><td></td><td> BCM56506 B1
+</td><td></td></tr><tr><td></td><td> BCM56506 B2
+</td><td></td></tr><tr><td></td><td> BCM56507 A0
+</td><td> 24-Port GbE Layer 2 Switch with Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56507 A1
+</td><td></td></tr><tr><td></td><td> BCM56507 B0
+</td><td></td></tr><tr><td></td><td> BCM56507 B1
+</td><td></td></tr><tr><td></td><td> BCM56507 B2
+</td><td></td></tr><tr><td></td><td> BCM56508 A0
+</td><td> 24-Port GbE Layer 2 Switch with Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56508 A1
+</td><td></td></tr><tr><td></td><td> BCM56508 B0
+</td><td></td></tr><tr><td></td><td> BCM56508 B1
+</td><td></td></tr><tr><td></td><td> BCM56508 B2
+</td><td></td></tr><tr><td></td><td> BCM56509 A0
+</td><td> 24-Port GbE Layer 2 Switch with Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56509 A1
+</td><td></td></tr><tr><td></td><td> BCM56509 B0
+</td><td></td></tr><tr><td></td><td> BCM56509 B1
+</td><td></td></tr><tr><td></td><td> BCM56509 B2
+</td><td></td></tr><tr><td> BCM56510
+</td><td> BCM56510 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56511 A0
+</td><td> Four-Port 10-GbE/HiGig+ Multilayer Switch
+</td></tr><tr><td></td><td> BCM56512 A0
+</td><td> 24-Port GbE Multilayer Switch With Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56513 A0
+</td><td> 24-Port GbE Multilayer Switch With Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56514 A0
+</td><td> 24-Port GbE Multilayer Switch With Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td> BCM56520
+</td><td> BCM56520 A0
+</td><td> 24-Port GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56520 B0
+</td><td></td></tr><tr><td></td><td> BCM56522 A0
+</td><td> 24-Port GbE Multilayer Switch with Two 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56522 B0
+</td><td></td></tr><tr><td></td><td> BCM56524 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56524 B0
+</td><td></td></tr><tr><td></td><td> BCM56526 A0
+</td><td> 28-Port GbE Multilayer Switch with Six 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56526 B0
+</td><td></td></tr><tr><td> BCM56530
+</td><td> BCM56534 B0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56538 B0
+</td><td> 48-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td> BCM56580
+</td><td> BCM56580 A0
+</td><td> 16 x 2.5 GbE + 4 x 10 GbE Ethernet Multilayer Switch
+</td></tr><tr><td> BCM56600
+</td><td> BCM56600 A0
+</td><td> 12 x GbE High-Feature Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56600 B0
+</td><td></td></tr><tr><td></td><td> BCM56600 C0
+</td><td></td></tr><tr><td></td><td> BCM56601 A0
+</td><td> 12 x GbE High-Feature Ethernet Multilayer Switch With HiGig+ Uplink
+</td></tr><tr><td></td><td> BCM56601 B0
+</td><td></td></tr><tr><td></td><td> BCM56601 C0
+</td><td></td></tr><tr><td></td><td> BCM56602 A0
+</td><td> 10-GbE High-Feature Ethernet Multilayer Switch With HiGig+ Uplink
+</td></tr><tr><td></td><td> BCM56602 B0
+</td><td></td></tr><tr><td></td><td> BCM56602 C0
+</td><td></td></tr><tr><td></td><td> BCM56603 A0
+</td><td> HG+ High-Feature Ethernet Multilayer Proxy
+</td></tr><tr><td></td><td> BCM56603 B0
+</td><td></td></tr><tr><td></td><td> BCM56603 C0
+</td><td></td></tr><tr><td></td><td> BCM56605 A0
+</td><td> 12 x GbE High-Feature Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56605 B0
+</td><td></td></tr><tr><td></td><td> BCM56605 C0
+</td><td></td></tr><tr><td></td><td> BCM56606 A0
+</td><td> 12 x GbE High-Feature Ethernet Multilayer Switch With HiGig+ Uplink
+</td></tr><tr><td></td><td> BCM56606 B0
+</td><td></td></tr><tr><td></td><td> BCM56606 C0
+</td><td></td></tr><tr><td></td><td> BCM56607 A0
+</td><td> 10-GbE High-Feature Ethernet Multilayer Switch With HiGig+ Uplink
+</td></tr><tr><td></td><td> BCM56607 B0
+</td><td></td></tr><tr><td></td><td> BCM56607 C0
+</td><td></td></tr><tr><td></td><td> BCM56608 A0
+</td><td> HG+ High-Feature Ethernet Multilayer Proxy
+</td></tr><tr><td></td><td> BCM56608 B0
+</td><td></td></tr><tr><td></td><td> BCM56608 C0
+</td><td></td></tr><tr><td> BCM56620
+</td><td> BCM56620 A0
+</td><td></td></tr><tr><td></td><td> BCM56620 A1
+</td><td></td></tr><tr><td></td><td> BCM56620 B0
+</td><td></td></tr><tr><td></td><td> BCM56620 B1
+</td><td></td></tr><tr><td></td><td> BCM56624 A0
+</td><td> 49 port 1-GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2
+Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56624 A1
+</td><td></td></tr><tr><td></td><td> BCM56624 B0
+</td><td></td></tr><tr><td></td><td> BCM56624 B1
+</td><td></td></tr><tr><td></td><td> BCM56624 B2
+</td><td></td></tr><tr><td></td><td> BCM56626 A0
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 6 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56626 A1
+</td><td></td></tr><tr><td></td><td> BCM56626 B0
+</td><td></td></tr><tr><td></td><td> BCM56626 B1
+</td><td></td></tr><tr><td></td><td> BCM56626 B2
+</td><td></td></tr><tr><td></td><td> BCM56628 A0
+</td><td> 8 port 10-GbE/HiGig2 Multilayer Ethernet Switch with External Table Expansion
+</td></tr><tr><td></td><td> BCM56628 A1
+</td><td></td></tr><tr><td></td><td> BCM56628 B0
+</td><td></td></tr><tr><td></td><td> BCM56628 B1
+</td><td></td></tr><tr><td></td><td> BCM56628 B2
+</td><td></td></tr><tr><td></td><td> BCM56629 B0      
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 8 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56629 B1
+</td><td></td></tr><tr><td> BCM56630
+</td><td> BCM56630 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56630 B0
+</td><td></td></tr><tr><td></td><td> BCM56634 A0
+</td><td> 48-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56634 B0
+</td><td></td></tr><tr><td></td><td> BCM56636 A0
+</td><td> 24-Port GbE + 2-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56636 B0
+</td><td></td></tr><tr><td></td><td> BCM56638 A0
+</td><td> 4-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56638 B0
+</td><td></td></tr><tr><td></td><td> BCM56639 A0
+</td><td> 24-Port GbE + 4-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56639 B0
+</td><td></td></tr><tr><td> BCM56680
+</td><td> BCM56680 A0
+</td><td> 25 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x
+10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56680 A1
+</td></tr><tr><td></td><td> BCM56680 B0
+</td><td></td></tr><tr><td></td><td> BCM56680 B1
+</td><td></td></tr><tr><td></td><td> BCM56684 A0
+</td><td> 24 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x
+10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56684 A1
+</td><td></td></tr><tr><td></td><td> BCM56684 B0
+</td><td></td></tr><tr><td></td><td> BCM56684 B1
+</td><td></td></tr><tr><td> BCM56685
+</td><td> BCM56685 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56685 B0
+</td><td></td></tr><tr><td></td><td> BCM56689 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56689 B0
+</td><td></td></tr><tr><td> BCM56700
+</td><td> BCM56700 A0
+</td><td> 16-Port, 192-Gbps Lossless Switch Fabric
+</td></tr><tr><td></td><td> BCM56701 A0
+</td><td> 12-Port, 144-Gbps Lossless Switch Fabric
+</td></tr><tr><td> BCM56720
+</td><td> BCM56720 A0
+</td><td> 16 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td></td><td> BCM56721 A0
+</td><td> 12 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td> BCM56725
+</td><td> BCM56725 A0
+</td><td> 8 Port, 20-Gbps + 4 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td> BCM56740
+</td><td> BCM56743 A0
+</td><td> 480 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56743 A1
+</td><td></td></tr><tr><td></td><td> BCM56743 A2
+</td><td></td></tr><tr><td></td><td> BCM56743 A3
+</td><td></td></tr><tr><td></td><td> BCM56743 A4
+</td><td></td></tr><tr><td></td><td> BCM56743 B0
+</td><td></td></tr><tr><td></td><td> BCM56743 B1
+</td><td></td></tr><tr><td></td><td> BCM56745 A0
+</td><td> 640 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56745 A1
+</td><td></td></tr><tr><td></td><td> BCM56745 A2
+</td><td></td></tr><tr><td></td><td> BCM56745 A3
+</td><td></td></tr><tr><td></td><td> BCM56745 A4
+</td><td></td></tr><tr><td></td><td> BCM56745 B0
+</td><td></td></tr><tr><td></td><td> BCM56745 B1
+</td><td></td></tr><tr><td> <tt>BCM56740_PLUS</tt>
+</td><td> BCM56744 A0
+</td><td> 480 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56744 A1
+</td><td></td></tr><tr><td></td><td> BCM56746 A0
+</td><td> 640 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56746 A1
+</td><td></td></tr><tr><td> BCM56800
+</td><td> BCM56800 A0
+</td><td> 20-Port 10-Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56801 A0
+</td><td> 10-Port 10-Gigabit Ethernet and 8-Port HiGig2/10GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56802 A0
+</td><td> 16-Port 10-GbE/HiGig2 Multilayer Switch
+</td></tr><tr><td></td><td> BCM56803 A0
+</td><td> 12 Port 10GE/HiGig2 Multilayer Switch
+</td></tr><tr><td> BCM56820
+</td><td> BCM56820 A0
+</td><td> 24 x 10-GbE + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56820 B0
+</td><td></td></tr><tr><td></td><td> BCM56821 A0
+</td><td> 12 x 10-GbE + 8 x HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56821 B0
+</td><td></td></tr><tr><td></td><td> BCM56822 A0
+</td><td> 12 x 10-GbE + 4 x 20-Gbps HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56822 B0
+</td><td></td></tr><tr><td></td><td> BCM56823 A0
+</td><td> 8 x 10-GbE + 4 x 20-Gbps HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56823 B0
+</td><td></td></tr><tr><td></td><td> BCM56825 B0
+</td><td> 16 x 10-GbE + 8 x 20-Gbps HiGig2 + 1 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td> BCM56740
+</td><td> BCM56743 A0
+</td><td> 480 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56743 A1
+</td><td></td></tr><tr><td></td><td> BCM56743 A2
+</td><td></td></tr><tr><td></td><td> BCM56743 A3
+</td><td></td></tr><tr><td></td><td> BCM56743 A4
+</td><td></td></tr><tr><td></td><td> BCM56743 B0
+</td><td></td></tr><tr><td></td><td> BCM56743 B1
+</td><td></td></tr><tr><td></td><td> BCM56745 A0
+</td><td> 640 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56745 A1
+</td><td></td></tr><tr><td></td><td> BCM56745 A2
+</td><td></td></tr><tr><td></td><td> BCM56745 A3
+</td><td></td></tr><tr><td></td><td> BCM56745 A4
+</td><td></td></tr><tr><td></td><td> BCM56745 B0
+</td><td></td></tr><tr><td></td><td> BCM56745 B1
+</td><td></td></tr><tr><td> <tt>BCM56740_PLUS</tt>
+</td><td> BCM56744 A0
+</td><td> 480 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56744 A1
+</td><td></td></tr><tr><td></td><td> BCM56746 A0
+</td><td> 640 Gbps Switch fabric
+</td></tr><tr><td></td><td> BCM56746 A1
+</td><td></td></tr><tr><td> BCM56840
+</td><td> BCM56841 A0
+</td><td> 320 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56841 A1
+</td><td></td></tr><tr><td></td><td> BCM56841 A2
+</td><td></td></tr><tr><td></td><td> BCM56841 A3
+</td><td></td></tr><tr><td></td><td> BCM56841 A4
+</td><td></td></tr><tr><td></td><td> BCM56841 B0
+</td><td></td></tr><tr><td></td><td> BCM56841 B1
+</td><td></td></tr><tr><td></td><td> BCM56843 A0
+</td><td> 480 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56843 A1
+</td><td></td></tr><tr><td></td><td> BCM56843 A2
+</td><td></td></tr><tr><td></td><td> BCM56843 A3
+</td><td></td></tr><tr><td></td><td> BCM56843 A4
+</td><td></td></tr><tr><td></td><td> BCM56843 B0
+</td><td></td></tr><tr><td></td><td> BCM56843 B1
+</td><td></td></tr><tr><td></td><td> BCM56845 A0
+</td><td> 640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56845 A1
+</td><td></td></tr><tr><td></td><td> BCM56845 A2
+</td><td></td></tr><tr><td></td><td> BCM56845 A3
+</td><td></td></tr><tr><td></td><td> BCM56845 A4
+</td><td></td></tr><tr><td></td><td> BCM56845 B0
+</td><td></td></tr><tr><td></td><td> BCM56845 B1
+</td><td></td></tr><tr><td> <tt>BCM56840_PLUS</tt>
+</td><td> BCM56842 A0
+</td><td> 320 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56842 A1
+</td><td></td></tr><tr><td></td><td> BCM56844 A0
+</td><td> 480 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56844 A1
+</td><td></td></tr><tr><td></td><td> BCM56846 A0
+</td><td> 640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56846 A1
+</td><td></td></tr><tr><td> BCM88020
+</td><td> BCM88020 A0
+</td><td> XGS Core (XCore/SBX) Fully Programmable Carrier Packet Processor with 24 GbE Ports,
+2 10GbE Ports and 2 SPI Interfaces
+</td></tr><tr><td></td><td> BCM88020 A1
+</td><td></td></tr><tr><td></td><td> BCM88020 A2
+</td><td></td></tr><tr><td> BCM88025
+</td><td> BCM88025 A0
+</td><td> XGS Core (XCore/SBX) Fully Programmable Carrier Packet Processor with 24 GbE Ports, 2 10GbE Ports and 2 SPI Interfaces
+</td></tr><tr><td> BCM88130
+</td><td> BCM88130 A0
+</td><td> XGS Core (XCore/SBX) 630 Gbps Bandwidth Manager and Switching Engine
+</td></tr><tr><td></td><td> BCM88130 A1
+</td><td></td></tr><tr><td> BME-3200
+</td><td> BME-3200 A0
+</td><td> XGS Core (XCore/SBX) Fabric Bandwidth Manager with 32 SCI control ports
+and up to 40 SFI data ports
+</td></tr><tr><td></td><td> BME-3200 B0
+</td><td></td></tr><tr><td> QE-2000
+</td><td> QE-2000 A1
+</td><td> XGS Core (XCore/SBX) Fabric Queueing Engine with 49 SPI 4.2 subports
+</td></tr><tr><td></td><td> QE-2000 A2
+</td><td></td></tr><tr><td></td><td> QE-2000 A3
+</td><td></td></tr><tr><td></td><td> QE-2000 A4
+</td><td></td></tr><tr><td>BCM88230
+</td><td>BCM88230 A0
+</td><td>XGS Core (XCore/SBX) Fabric Queueing Engine with Integrated Traffic Management
+with 4 HiGig2 ports, 50Gbps
+</td></tr><tr><td></td><td>BCM88230 B0
+</td><td></td></tr><tr><td></td><td>BCM88235 A0
+</td><td>XGS Core (XCore/SBX) Fabric Queueing Engine with Integrated Traffic Management
+with 4 HiGig2 ports, 80Gbps
+</td></tr><tr><td></td><td>BCM88235 B0
+</td><td></td></tr><tr><td></td><td>BCM88231 A0
+</td><td>XGS Core (XCore/SBX) Traffic Manager with 4 HiGig2 ports, 50Gbps
+</td></tr><tr><td></td><td>BCM88231 B0
+</td><td></td></tr><tr><td></td><td>BCM88236 A0
+</td><td>XGS Core (XCore/SBX) Traffic Manager with 4 HiGig2 ports, 80Gbps
+</td></tr><tr><td></td><td>BCM88236 B0
+</td><td></td></tr><tr><td>BCM56930
+</td><td>BCM56931 A0
+</td><td>XGS pass-through and standalone Traffic Manager, 4 HiGig2 ports, 50Gbps
+</td></tr><tr><td></td><td>BCM56931 B0
+</td><td></td></tr><tr><td></td><td>BCM56936 A0
+</td><td>XGS pass-through and standalone Traffic Manager, 4 HiGig2 ports, 80Gbps
+</td></tr><tr><td></td><td>BCM56936 B0
+</td><td></td></tr></tbody></table><p>Warm boot Supported devices
+<p>Note: There is no warm boot support for External table expansion in BCM56620 and BCM56630 device family.
+
+<a name=wbsd></a>
+<h3>Table 10:   Switch Devices that support Warm boot
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Family</b></td><td><b>  Devices</b></td><td><b> Description
+</b></td></tr><tr><td> BCM5675
+</td><td> BCM5675 A0
+</td><td> 8-Port, 192-Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5675 A1
+</td><td></td></tr><tr><td></td><td> BCM5676 A0
+</td><td> 4-Port, 96-Gbps Switch Fabric
+</td></tr><tr><td></td><td> BCM5676 A1
+</td><td></td></tr><tr><td> BCM56020
+</td><td> BCM56024 A0
+</td><td> 24-Port Integrated Multilayer Switch and CPU
+</td></tr><tr><td></td><td> BCM56024 B0
+</td><td></td></tr><tr><td></td><td> BCM56025 A0
+</td><td> 24-Port Integrated L2 Switch and CPU
+</td></tr><tr><td></td><td> BCM56025 B0
+</td><td></td></tr><tr><td></td><td> BCM56026 A0
+</td><td> 24-Port Integrated L2 Switch and CPU
+</td></tr><tr><td></td><td> BCM56026 B0
+</td><td></td></tr><tr><td> BCM56130
+</td><td> BCM56132 A0
+</td><td> 24-Port Fast Ethernet Multilayer Switch with Two 10-GbE/HiGig2 and
+Two 1G/2.5Gb Uplink Ports 
+</td></tr><tr><td></td><td> BCM56132 B0
+</td><td></td></tr><tr><td></td><td> BCM56134 A0
+</td><td> 24-Port Fast Ethernet Multilayer Switch with four 1G/2.5Gb Uplink Ports
+</td></tr><tr><td></td><td> BCM56134 B0
+</td><td></td></tr><tr><td> BCM56220
+</td><td> BCM56224 A0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56224 B0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56225 A0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56225 B0
+</td><td> 24 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56226 A0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56226 B0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56227 A0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56227 B0
+</td><td> 16 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56228 A0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56228 B0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L3/L2+
+</td></tr><tr><td></td><td> BCM56229 A0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td></td><td> BCM56229 B0
+</td><td> 8 GbE + 4 x 1 Gb/2.5 Gb, L2+
+</td></tr><tr><td> BCM56330
+</td><td> BCM56331 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 2.5GbE Uplink Ports
+</td></tr><tr><td></td><td> BCM56331 B0
+</td><td></td></tr><tr><td></td><td> BCM56333 A0
+</td><td> 16-Port GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56333 B0
+</td><td></td></tr><tr><td></td><td> BCM56334 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56334 B0
+</td><td></td></tr><tr><td></td><td> BCM56338 A0
+</td><td> 8-Port GbE Multilayer Switch with two 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56338 B0
+</td><td></td></tr><tr><td> BCM56500
+</td><td> BCM56500 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56500 A1
+</td><td></td></tr><tr><td></td><td> BCM56500 B0
+</td><td></td></tr><tr><td></td><td> BCM56500 B1
+</td><td></td></tr><tr><td></td><td> BCM56500 B2
+</td><td></td></tr><tr><td></td><td> BCM56501 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56501 A1
+</td><td></td></tr><tr><td></td><td> BCM56501 B0
+</td><td></td></tr><tr><td></td><td> BCM56501 B1
+</td><td></td></tr><tr><td></td><td> BCM56501 B2
+</td><td></td></tr><tr><td></td><td> BCM56502 A0
+</td><td> 24-Port GbE Multilayer Switch with Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56502 A1
+</td><td></td></tr><tr><td></td><td> BCM56502 B0
+</td><td></td></tr><tr><td></td><td> BCM56502 B1
+</td><td></td></tr><tr><td></td><td> BCM56502 B2
+</td><td></td></tr><tr><td></td><td> BCM56503 A0
+</td><td> 24-Port GbE Multilayer Switch with Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56503 A1
+</td><td></td></tr><tr><td></td><td> BCM56503 B0
+</td><td></td></tr><tr><td></td><td> BCM56503 B1
+</td><td></td></tr><tr><td></td><td> BCM56503 B2
+</td><td></td></tr><tr><td></td><td> BCM56504 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56504 A1
+</td><td></td></tr><tr><td></td><td> BCM56504 B0
+</td><td></td></tr><tr><td></td><td> BCM56504 B1
+</td><td></td></tr><tr><td></td><td> BCM56504 B2
+</td><td></td></tr><tr><td></td><td> BCM56505 A0
+</td><td> 24-Port GbE Layer 2 Switch
+</td></tr><tr><td></td><td> BCM56505 A1
+</td><td></td></tr><tr><td></td><td> BCM56505 B0
+</td><td></td></tr><tr><td></td><td> BCM56505 B1
+</td><td></td></tr><tr><td></td><td> BCM56505 B2
+</td><td></td></tr><tr><td></td><td> BCM56506 A0
+</td><td> Four 10-Gigabit Ethernet/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56506 A1
+</td><td></td></tr><tr><td></td><td> BCM56506 B0
+</td><td></td></tr><tr><td></td><td> BCM56506 B1
+</td><td></td></tr><tr><td></td><td> BCM56506 B2
+</td><td></td></tr><tr><td></td><td> BCM56507 A0
+</td><td> 24-Port GbE Layer 2 Switch with Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56507 A1
+</td><td></td></tr><tr><td></td><td> BCM56507 B0
+</td><td></td></tr><tr><td></td><td> BCM56507 B1
+</td><td></td></tr><tr><td></td><td> BCM56507 B2
+</td><td></td></tr><tr><td></td><td> BCM56508 A0
+</td><td> 24-Port GbE Layer 2 Switch with Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56508 A1
+</td><td></td></tr><tr><td></td><td> BCM56508 B0
+</td><td></td></tr><tr><td></td><td> BCM56508 B1
+</td><td></td></tr><tr><td></td><td> BCM56508 B2
+</td><td></td></tr><tr><td></td><td> BCM56509 A0
+</td><td> 24-Port GbE Layer 2 Switch with Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56509 A1
+</td><td></td></tr><tr><td></td><td> BCM56509 B0
+</td><td></td></tr><tr><td></td><td> BCM56509 B1
+</td><td></td></tr><tr><td></td><td> BCM56509 B2
+</td><td></td></tr><tr><td> BCM56510
+</td><td> BCM56510 A0
+</td><td> 24-Port Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56511 A0
+</td><td> Four-Port 10-GbE/HiGig+ Multilayer Switch
+</td></tr><tr><td></td><td> BCM56512 A0
+</td><td> 24-Port GbE Multilayer Switch With Two 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56513 A0
+</td><td> 24-Port GbE Multilayer Switch With Three 10-GbE/HiGig+ Ports
+</td></tr><tr><td></td><td> BCM56514 A0
+</td><td> 24-Port GbE Multilayer Switch With Four 10-GbE/HiGig+ Ports
+</td></tr><tr><td> BCM56520
+</td><td> BCM56520 A0
+</td><td> 24-Port GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56520 B0
+</td><td></td></tr><tr><td></td><td> BCM56522 A0
+</td><td> 24-Port GbE Multilayer Switch with Two 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56522 B0
+</td><td></td></tr><tr><td></td><td> BCM56524 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56524 B0
+</td><td></td></tr><tr><td></td><td> BCM56526 A0
+</td><td> 28-Port GbE Multilayer Switch with Six 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56526 B0
+</td><td></td></tr><tr><td> BCM56530
+</td><td> BCM56534 B0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56538 B0
+</td><td> 48-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td> BCM56620
+</td><td> BCM56620 A0
+</td><td></td></tr><tr><td></td><td> BCM56620 A1
+</td><td></td></tr><tr><td></td><td> BCM56620 B0
+</td><td></td></tr><tr><td></td><td> BCM56620 B1
+</td><td></td></tr><tr><td></td><td> BCM56624 A0
+</td><td> 49 port 1-GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2
+Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56624 A1
+</td><td></td></tr><tr><td></td><td> BCM56624 B0
+</td><td></td></tr><tr><td></td><td> BCM56624 B1
+</td><td></td></tr><tr><td></td><td> BCM56624 B2
+</td><td></td></tr><tr><td></td><td> BCM56626 A0
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 6 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56626 A1
+</td><td></td></tr><tr><td></td><td> BCM56626 B0
+</td><td></td></tr><tr><td></td><td> BCM56626 B1
+</td><td></td></tr><tr><td></td><td> BCM56626 B2
+</td><td></td></tr><tr><td></td><td> BCM56628 A0
+</td><td> 8 port 10-GbE/HiGig2 Multilayer Ethernet Switch with External Table Expansion
+</td></tr><tr><td></td><td> BCM56628 A1
+</td><td></td></tr><tr><td></td><td> BCM56628 B0
+</td><td></td></tr><tr><td></td><td> BCM56628 B1
+</td><td></td></tr><tr><td></td><td> BCM56628 B2
+</td><td></td></tr><tr><td></td><td> BCM56629 B0      
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 8 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td></td><td> BCM56629 B1
+</td><td></td></tr><tr><td> BCM56630
+</td><td> BCM56630 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56630 B0
+</td><td></td></tr><tr><td></td><td> BCM56634 A0
+</td><td> 48-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56634 B0
+</td><td></td></tr><tr><td></td><td> BCM56636 A0
+</td><td> 24-Port GbE + 2-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56636 B0
+</td><td></td></tr><tr><td></td><td> BCM56638 A0
+</td><td> 4-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56638 B0
+</td><td></td></tr><tr><td></td><td> BCM56639 A0
+</td><td> 24-Port GbE + 4-Port 10-GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56639 B0
+</td><td></td></tr><tr><td> BCM56680
+</td><td> BCM56680 A0
+</td><td> 25 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x
+10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56680 A1
+</td></tr><tr><td></td><td> BCM56680 B0
+</td><td></td></tr><tr><td></td><td> BCM56680 B1
+</td><td></td></tr><tr><td></td><td> BCM56684 A0
+</td><td> 24 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x
+10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td></td><td> BCM56684 A1
+</td><td></td></tr><tr><td></td><td> BCM56684 B0
+</td><td></td></tr><tr><td></td><td> BCM56684 B1
+</td><td></td></tr><tr><td> BCM56685
+</td><td> BCM56685 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56685 B0
+</td><td></td></tr><tr><td></td><td> BCM56689 A0
+</td><td> 24-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports
+</td></tr><tr><td></td><td> BCM56689 B0
+</td><td></td></tr><tr><td> BCM56700
+</td><td> BCM56700 A0
+</td><td> 16-Port, 192-Gbps Lossless Switch Fabric
+</td></tr><tr><td></td><td> BCM56701 A0
+</td><td> 12-Port, 144-Gbps Lossless Switch Fabric
+</td></tr><tr><td> BCM56720
+</td><td> BCM56720 A0
+</td><td> 16 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td></td><td> BCM56721 A0
+</td><td> 12 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td> BCM56725
+</td><td> BCM56725 A0
+</td><td> 8 Port, 20-Gbps + 4 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td> BCM56800
+</td><td> BCM56800 A0
+</td><td> 20-Port 10-Gigabit Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56801 A0
+</td><td> 10-Port 10-Gigabit Ethernet and 8-Port HiGig2/10GbE Multilayer Switch
+</td></tr><tr><td></td><td> BCM56802 A0
+</td><td> 16-Port 10-GbE/HiGig2 Multilayer Switch
+</td></tr><tr><td></td><td> BCM56803 A0
+</td><td> 12 Port 10GE/HiGig2 Multilayer Switch
+</td></tr><tr><td> BCM56820
+</td><td> BCM56820 A0
+</td><td> 24 x 10-GbE + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56820 B0
+</td><td></td></tr><tr><td></td><td> BCM56821 A0
+</td><td> 12 x 10-GbE + 8 x HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56821 B0
+</td><td></td></tr><tr><td></td><td> BCM56822 A0
+</td><td> 12 x 10-GbE + 4 x 20-Gbps HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56822 B0
+</td><td></td></tr><tr><td></td><td> BCM56823 A0
+</td><td> 8 x 10-GbE + 4 x 20-Gbps HiGig2 + 4 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td></td><td> BCM56823 B0
+</td><td></td></tr><tr><td></td><td> BCM56825 B0
+</td><td> 16 x 10-GbE + 8 x 20-Gbps HiGig2 + 1 x 1-GbE Multilayer Ethernet Switch
+</td></tr><tr><td> BCM56840
+</td><td> BCM56841 A0
+</td><td> 320 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56841 A1
+</td><td></td></tr><tr><td></td><td> BCM56841 A2
+</td><td></td></tr><tr><td></td><td> BCM56841 A3
+</td><td></td></tr><tr><td></td><td> BCM56841 A4
+</td><td></td></tr><tr><td></td><td> BCM56841 B0
+</td><td></td></tr><tr><td></td><td> BCM56841 B1
+</td><td></td></tr><tr><td></td><td> BCM56843 A0
+</td><td> 480 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56843 A1
+</td><td></td></tr><tr><td></td><td> BCM56843 A2
+</td><td></td></tr><tr><td></td><td> BCM56843 A3
+</td><td></td></tr><tr><td></td><td> BCM56843 A4
+</td><td></td></tr><tr><td></td><td> BCM56843 B0
+</td><td></td></tr><tr><td></td><td> BCM56843 B1
+</td><td></td></tr><tr><td></td><td> BCM56845 A0
+</td><td> 640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56845 A1
+</td><td></td></tr><tr><td></td><td> BCM56845 A2
+</td><td></td></tr><tr><td></td><td> BCM56845 A3
+</td><td></td></tr><tr><td></td><td> BCM56845 A4
+</td><td></td></tr><tr><td></td><td> BCM56845 B0
+</td><td></td></tr><tr><td></td><td> BCM56845 B1
+</td><td></td></tr><tr><td> <tt>BCM56840_PLUS</tt>
+</td><td> BCM56842 A0
+</td><td> 320 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56842 A1
+</td><td></td></tr><tr><td></td><td> BCM56844 A0
+</td><td> 480 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56844 A1
+</td><td></td></tr><tr><td></td><td> BCM56846 A0
+</td><td> 640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td></td><td> BCM56846 A1
+</td><td></td></tr></tbody></table><h3>Table 11:   Switch Device Codenames
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Product Family</b></td><td>  Architecture</td><td> Codename
+</td></tr><tr><td>  BCM5650</td><td>  StrataXGS</td><td> -
+</td></tr><tr><td>  BCM5665</td><td>  StrataXGS</td><td> -
+</td></tr><tr><td>  BCM5670</td><td>  StrataXGS</td><td> -
+</td></tr><tr><td>  BCM5673</td><td>  StrataXGS</td><td> -
+</td></tr><tr><td>  BCM5674</td><td>  StrataXGS II</td><td> -
+</td></tr><tr><td>  BCM5675</td><td>  StrataXGS II</td><td> -
+</td></tr><tr><td>  BCM5690</td><td>  StrataXGS</td><td> -
+</td></tr><tr><td>  BCM5695</td><td>  StrataXGS II</td><td> -
+</td></tr><tr><td>  BCM53310</td><td>  StrataXGS III</td><td> Hawkeye
+</td></tr><tr><td>  BCM53710</td><td>  StrataXGS III</td><td> Raptor
+</td></tr><tr><td>  BCM53720</td><td>  StrataXGS III</td><td> Raven
+</td></tr><tr><td>  BCM56010</td><td>  StrataXGS III</td><td> Raptor
+</td></tr><tr><td>  BCM56020</td><td>  StrataXGS III</td><td> Tropicana
+</td></tr><tr><td>  BCM56100</td><td>  StrataXGS III</td><td> Felix
+</td></tr><tr><td>  BCM56110</td><td>  StrataXGS III</td><td> Felix+
+</td></tr><tr><td>  BCM56140</td><td>  StrataXGS IV</td><td> Hurricane
+</td></tr><tr><td>  BCM56210</td><td>  StrataXGS III</td><td> Raptor
+</td></tr><tr><td>  BCM56220</td><td>  StrataXGS III</td><td> Raven
+</td></tr><tr><td>  BCM56300</td><td>  StrataXGS III</td><td> Helix
+</td></tr><tr><td>  BCM56310</td><td>  StrataXGS III</td><td> Helix+
+</td></tr><tr><td>  BCM56320</td><td>  StrataXGS IV</td><td> Helix3
+</td></tr><tr><td>  BCM56330</td><td>  StrataXGS IV</td><td> Enduro
+</td></tr><tr><td>  BCM56130</td><td>  StrataXGS IV</td><td> Stardust
+</td></tr><tr><td>  BCM56440</td><td>  StrataXGS IV</td><td> Katana
+</td></tr><tr><td>  BCM56500</td><td>  StrataXGS III</td><td> Firebolt
+</td></tr><tr><td>  BCM56510</td><td>  StrataXGS III</td><td> Firebolt2
+</td></tr><tr><td>  BCM56520</td><td>  StrataXGS IV</td><td> Apollo
+</td></tr><tr><td>  BCM56530</td><td>  StrataXGS IV</td><td> Firebolt3
+</td></tr><tr><td>  BCM56580</td><td>  StrataXGS III</td><td> Goldwing
+</td></tr><tr><td>  BCM56600</td><td>  StrataXGS III</td><td> Easyrider
+</td></tr><tr><td>  BCM56620</td><td>  StrataXGS IV</td><td> Triumph
+</td></tr><tr><td>  BCM56629</td><td>  StrataXGS IV</td><td> Triumph
+</td></tr><tr><td>  BCM56630</td><td>  StrataXGS IV</td><td> Triumph2
+</td></tr><tr><td>  BCM56680</td><td>  StrataXGS IV</td><td> Valkyrie
+</td></tr><tr><td>  BCM56685</td><td>  StrataXGS IV</td><td> Valkyrie2
+</td></tr><tr><td>  BCM56700</td><td>  StrataXGS III</td><td> Humv
+</td></tr><tr><td>  BCM56720</td><td>  StrataXGS IV</td><td> HUMV+
+</td></tr><tr><td>  BCM56725</td><td>  StrataXGS IV</td><td> Conqueror
+</td></tr><tr><td>  BCM56740</td><td>  StrataXGS IV</td><td> Titan
+</td></tr><tr><td>  BCM56744</td><td>  StrataXGS IV</td><td> Titan+
+</td></tr><tr><td>  BCM56800</td><td>  StrataXGS IV</td><td> Bradley
+</td></tr><tr><td>  BCM56820</td><td>  StrataXGS IV</td><td> Scorpion
+</td></tr><tr><td>  BCM56825</td><td>  StrataXGS IV</td><td> Sco320G
+</td></tr><tr><td>  BCM56840</td><td>  StrataXGS IV</td><td> Trident
+</td></tr><tr><td>  <tt>BCM56840_PLUS</tt></td><td>  StrataXGS IV</td><td> Trident+
+</td></tr><tr><td>  BCM88020</td><td>  XGS Core</td><td> Caladan FE-2000
+</td></tr><tr><td>  BCM88025</td><td>  XGS Core</td><td> Caladan2
+</td></tr><tr><td>  BCM88130</td><td>  XGS Core</td><td> Polaris
+</td></tr><tr><td>  BCM88230</td><td>  XGS Core</td><td> Sirius
+</td></tr><tr><td>  BCM88235</td><td>  XGS Core</td><td> Sirius+
+</td></tr><tr><td>  BCM88231</td><td>  XGS Core</td><td> Sirius TM
+</td></tr><tr><td>  BCM88236</td><td>  XGS Core</td><td> Sirius+ TM
+</td></tr><tr><td>  BCM56931</td><td>  XGS Core</td><td> Sportster
+</td></tr><tr><td>  BCM56936</td><td>  XGS Core</td><td> Sportster+
+</td></tr><tr><td>  BCM53101</td><td>  ROBO</td><td> Lotus
+</td></tr><tr><td>  BCM53115</td><td>  ROBO</td><td> Vulcan
+</td></tr><tr><td>  BCM53118</td><td>  ROBO</td><td> Blackbird
+</td></tr><tr><td>  BCM53125</td><td>  ROBO</td><td> Starfighter
+</td></tr><tr><td>  BCM53128</td><td>  ROBO</td><td> Blackbird2
+</td></tr><tr><td>  BCM53242</td><td>  ROBO</td><td> Harrier
+</td></tr><tr><td>  BCM53280</td><td>  ROBO</td><td> Thunderbolt
+</td></tr><tr><td>  BCM53600</td><td>  ROBO</td><td> Voyager
+</td></tr></tbody></table><p><br><hr noshade><a name="phys"></a>
+<h3>Section 5.6.2:   PHYs
+</h3>
+<p><h3>Table 12:   PHYs
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Device</b></td><td><b>  Driver Family</b></td><td><b> Description
+</b></td></tr><tr><td> BCM5218
+</td><td> 522x
+</td><td> 10/100Base-TX/FX Octal-PHY(tm) Transceiver
+</td></tr><tr><td> BCM5220
+</td><td> 522x
+</td><td> 10/100BASE-TX/FX Mini-F(tm) Transceiver
+</td></tr><tr><td> BCM5221
+</td><td> 522x
+</td><td> 10/100BASE-TX/FX Mini-F(tm) Transceiver
+</td></tr><tr><td> BCM5226
+</td><td> 522x
+</td><td> 10/100 BASE- TX/FX Hex-PHY(tm) Transceiver
+</td></tr><tr><td> BCM5228
+</td><td> 522x
+</td><td> 10/100BASE-TX/FX Octal-F(tm) Transceiver
+</td></tr><tr><td> BCM5238
+</td><td> 522x
+</td><td> 10/100BASE-TX OCTAL-f(tm) Transceiver
+</td></tr><tr><td> BCM5248
+</td><td> 522x
+</td><td> 10/100BASE-TX Octal-F(tm) Transceiver
+</td></tr><tr><td> BCM52681E A1
+</td><td> 54680
+</td><td> Octal 10/100 Ethernet Transceiver
+</td></tr><tr><td> BCM5401
+</td><td> 5401
+</td><td> 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5402
+</td><td> 5402
+</td><td> 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5404
+</td><td> 5404
+</td><td> Quad-Port 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5424
+</td><td> 5424
+</td><td> Quad 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM5434
+</td><td> 5424
+</td><td> Quad 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM5411
+</td><td> 5411
+</td><td> 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5421
+</td><td> 5421S
+</td><td> 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5421S
+</td><td> 5421S
+</td><td> 10/100/1000BASE-T Gigabit Copper Transceiver with SerDes
+</td></tr><tr><td> BCM5461
+</td><td> 5464
+</td><td> 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM5464
+</td><td> 5464
+</td><td> Quad-Port 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5464R
+</td><td> 5464
+</td><td> Quad-Port 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5464S
+</td><td> 5464
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> BCM5464SR
+</td><td> 5464
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> BCM5466
+</td><td> 5464
+</td><td> Quad-Port 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5466R
+</td><td> 5464
+</td><td> Quad-Port 10/100/1000BASE-T Gigabit Copper Transceiver
+</td></tr><tr><td> BCM5466S
+</td><td> 5464
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> BCM5466SR
+</td><td> 5464
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> BCM5482
+</td><td> 5482
+</td><td> Dual-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM5488
+</td><td> 5464
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54380_B0</tt>
+</td><td> 54380
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver (Needs additional software component)
+</td></tr><tr><td> <tt>BCM54382_B0</tt>
+</td><td> 54380
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver (Needs additional software component)
+</td></tr><tr><td> <tt>BCM54616_A0</tt>
+</td><td> 54616
+</td><td> Single-Chip 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM54640 
+</td><td> 54640
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> <tt>BCM54640E_A1</tt>
+</td><td> 54640
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> BCM54640E B0
+</td><td> 54640
+</td><td> Quad-Port Gigabit Copper Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> <tt>BCM54680_A0</tt>
+</td><td> 54680
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54680E_A1</tt>
+</td><td> 54680
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54680E_B0</tt>
+</td><td> 54680
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54682E_A1</tt>
+</td><td> 54682
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver with 2 Copper/Fiber Media Interface
+</td></tr><tr><td> <tt>BCM54682E_B0</tt>
+</td><td> 54682
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver with 2 Copper/Fiber Media Interface
+</td></tr><tr><td> <tt>BCM54684_D0</tt>
+</td><td> 54684
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> BCM54684E B0
+</td><td> 54682
+</td><td> 10/100/1000 Octal (65nm) QSGMII-Copper/Fiber(2) with EEE
+</td></tr><tr><td> BCM54685
+</td><td> 54682
+</td><td> Octal QSGMII to 10/100/1000BaseT or Fiber Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54685E_A1</tt>
+</td><td> 54682
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver with Copper/Fiber Media Interface
+</td></tr><tr><td> <tt>BCM54810_A0</tt>
+</td><td> 54880
+</td><td> BroadR-Reach Single-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54880_A0</tt>
+</td><td> 54880
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver with BroadR-Reach support
+</td></tr><tr><td> <tt>BCM54880_B0</tt>
+</td><td> 54880
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver with BroadR-Reach support
+</td></tr><tr><td> <tt>BCM54880E_A1</tt>
+</td><td> 54680
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54880E_B0</tt>
+</td><td> 54680
+</td><td> Octal-Port 10/100/1000BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54881_B0</tt>
+</td><td> 54880
+</td><td> Octal 10/100Base/Tx Ethernet BroadReach Transceiver
+</td></tr><tr><td> <tt>BCM54980_B2</tt>
+</td><td> 54980
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54980_C0</tt>
+</td><td> 54980
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM54980_C1</tt>
+</td><td> 54980
+</td><td> Octal 1000/100/10BASE-T Gigabit Ethernet Transceiver
+</td></tr><tr><td> <tt>BCM8040_A2</tt>
+</td><td> 8040
+</td><td> Eight-Channel Multirate 1-Gbps - 3.2-Gbps Retimer/Switch
+</td></tr><tr><td> <tt>BCM8073_A0</tt>
+</td><td> 8072
+</td><td> Dual-Channel Serial 10-GbE BASE-KR to XAUI Transceiver. Firmware version d502.
+</td></tr><tr><td> <tt>BCM8074_A0</tt>
+</td><td> 8072
+</td><td> Quad-Channel Serial 10-GbE BASE-KR to XAUI Transceiver. Firmware version 010C.
+</td></tr><tr><td> BCM8704
+</td><td> 8703
+</td><td> Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with XAUI Interface
+</td></tr><tr><td> BCM8705
+</td><td> 8705
+</td><td> Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with WIS Layer and XAUI Interface
+</td></tr><tr><td> BCM8725
+</td><td> 8705
+</td><td> Dual Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with WIS Layer and XAUI
+Interface
+</td></tr><tr><td> <tt>BCM8726_A0</tt>
+</td><td> 8706
+</td><td> Dual Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with XAUI Interface
+</td></tr><tr><td> <tt>BCM8726_B1</tt>
+</td><td> 8706
+</td><td> Dual Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with XAUI(TM) Interface. Firmware version 0x0127
+</td></tr><tr><td> <tt>BCM8727_B0</tt>
+</td><td> 8706
+</td><td> Dual Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with XAUI Interface. Firmware version 0406.
+</td></tr><tr><td> <tt>BCM8727_C0</tt>
+</td><td> 8706
+</td><td> Dual Serial 10-Gigabit Ethernet/Fibre Channel Transceiver with XAUI Interface. Firmware version 050D.
+</td></tr><tr><td> <tt>BCM8728_A0</tt>
+</td><td> 8706
+</td><td> Dual-Channel 10-GbE SFI-to-XAUI(TM) Transceiver with EDC. Firmware version 0511. (Preview)
+</td></tr><tr><td> BCM8742
+</td><td> 8706
+</td><td> Quad-Channel 10-GbE SFI-to-XAUI(TM) Transceiver. Firmware version 0511.
+</td></tr><tr><td> <tt>BCM8747_A0</tt>
+</td><td> 8706
+</td><td> Quad-Channel 10-GbE SFI-to-XAUI(TM) Transceiver with EDC. Firmware version 0511.
+</td></tr><tr><td> <tt>BCM8750_A0</tt>
+</td><td> 8750
+</td><td> Dual-Channel 10 GbE SFI-to-XFI PHY with EDC
+</td></tr><tr><td> <tt>BCM8752_A0</tt>
+</td><td> 8750
+</td><td> Dual-Channel 10 GbE SFI-to-XFI PHY with EDC
+</td></tr><tr><td> <tt>BCM8754_A0</tt>
+</td><td> 8750
+</td><td> Quad-Channel 10 GbE SFI-to-XFI PHY with EDC. Firmware version 0411.
+</td></tr><tr><td> <tt>BCM8481_B0</tt>
+</td><td> 8481
+</td><td> 10GBASE-T Transceiver (Firmware version B0 02.10)
+</td></tr><tr><td> <tt>BCM8481_C0</tt>
+</td><td> 8481
+</td><td> 10GBASE-T Transceiver (Firmware version C0 02.13)
+</td></tr><tr><td> <tt>BCM84812_A0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 2.13
+</td></tr><tr><td> <tt>BCM84821_A0</tt>
+</td><td> 8481
+</td><td> 10GBASE-T Transceiver. Firmware version 2.13 (Preview)
+</td></tr><tr><td> <tt>BCM84822_A0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 3.02
+</td></tr><tr><td> <tt>BCM84823_A0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 3.02
+</td></tr><tr><td> <tt>BCM84823_B0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 4.02
+</td></tr><tr><td> <tt>BCM84823_B1</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 4.02
+</td></tr><tr><td> <tt>BCM84833_B0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 1.25 (Preview)
+</td></tr><tr><td> <tt>BCM84834_B0</tt>
+</td><td> 8481
+</td><td> Dual 10GBASE-T Transceiver. Firmware version 1.25 (Preview)
+</td></tr><tr><td> BCM84740 A0
+</td><td> 84740
+</td><td> 40 GbE PPI-to-XLAUI PHY with EDC. Firmware version D102.
+</td></tr><tr><td> BCM84753 A0
+</td><td> 84740
+</td><td> Quad-Channel 10 GbE SFI-to-XFI PHY with EDC. Firmware version D102.
+</td></tr><tr><td> BCM84754 A0
+</td><td> 84740
+</td><td> Quad-Channel 10 GbE SFI-to-XFI PHY with EDC. Firmware version D102.
+</td></tr><tr><td> BCM84064 A0
+</td><td> 84740
+</td><td> Quad 10G-KR-to-XFI or 40G-KR4-to-XLAUI Transceiver. Firmware version D102.
+</td></tr></tbody></table><p><br><hr noshade><a name="os"></a>
+<h3>Section 5.6.3:   Operating Systems
+</h3>
+<p>The SDK provides the SAL and BDE abstraction implementations
+necessary for running the SDK on the following operating systems.
+See the Platform Guide (56XX-PG810-R) for 
+instructions on porting the SDK to another platform. 
+<p><h3>Table 13:   Operating Systems
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b> Operating System
+</b></td></tr><tr><td> VxWorks 5.5
+</td></tr><tr><td> VxWorks 6.2
+</td></tr><tr><td> VxWorks 6.4
+</td></tr><tr><td> VxWorks 6.5
+</td></tr><tr><td> VxWorks 6.6
+</td></tr><tr><td> Linux 2.4.20 User Mode
+</td></tr><tr><td> Linux 2.4.20 Kernel Resident Mode
+</td></tr><tr><td> Linux 2.6.14 User Mode
+</td></tr><tr><td> Linux 2.6.14 Kernel Resident Mode
+</td></tr><tr><td> Linux 2.6.21 User Mode
+</td></tr><tr><td> Linux 2.6.21 Kernel Resident Mode
+</td></tr><tr><td> Linux 2.6.25 User Mode
+</td></tr><tr><td> Linux 2.6.25 Kernel Resident Mode
+</td></tr><tr><td> Linux 2.6.27 User Mode
+</td></tr><tr><td> Linux 2.6.27 Kernel Resident Mode
+</td></tr><tr><td> POSIX Compliant (SAL ONLY)
+</td></tr></tbody></table><p><br><hr noshade><a name="cpu"></a>
+<h3>Section 5.6.4:   CPU Subsystems
+</h3>
+<p><h3>Table 14:   CPU Subsystems
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  CPU Subsystem</b></td><td><b> Description
+</b></td></tr><tr><td> BCM95836
+</td><td> CPCI 32-bit MIPS with BCM5836 Processor
+</td></tr><tr><td> BCM98245
+</td><td> CPCI 32-bit PPC with Motorola 8245 Processor
+</td></tr><tr><td> BCM91125
+</td><td> CPCI 32/64-bit MIPS with BCM1125 SiByte Processor
+</td></tr><tr><td> BCM98548XMC
+</td><td> XMC 32-bit PPC with Freescale 8548 Processor
+</td></tr><tr><td> BCM953003C
+</td><td> XMC 32-bit MIPS with BCM53003 Processor
+</td></tr><tr><td> BCM5621X
+</td><td> Integrated MIPS CPU on BCM5621X Switch Devices
+</td></tr><tr><td> BCM5622X
+</td><td> Integrated MIPS CPU on BCM5622X Switch Devices
+</td></tr><tr><td> BCM5331X
+</td><td> Integrated MIPS CPU on BCM5331X Switch Devices
+</td></tr></tbody></table><p><br><hr noshade><a name="combinations"></a>
+<h3>Section 5.6.5:   CPU and Operating System Combinations
+</h3>
+<p>The following CPU and Operating System combinations are supported
+by the SDK (in addition to the above):
+<p><h3>Table 15:   CPU and Operating System Combinations
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  CPU Subsystem</b></td><td><b>  Operating System</b></td><td><b> Description
+</b></td></tr><tr><td> BCM95836
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM95836
+</td><td> Linux 2.4.20
+</td><td> Available through MontaVista 3.1 Preview kit
+</td></tr><tr><td> BCM95836
+</td><td> Linux 2.6.14
+</td><td> Available through Windriver Linux 1.5
+</td></tr><tr><td> BCM95836
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM98245
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM98245
+</td><td> VxWorks 6.2
+</td><td> BSP Provided
+</td></tr><tr><td> BCM98245
+</td><td> Linux 2.4.20
+</td><td> Available through MontaVista 3.1 Preview kit
+</td></tr><tr><td> BCM98245
+</td><td> Linux 2.6.14
+</td><td> Available through WindRiver Linux 1.4/1.5
+</td></tr><tr><td> BCM98245
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM91125
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM91125
+</td><td> VxWorks 6.2
+</td><td> BSP Provided
+</td></tr><tr><td> BCM91125
+</td><td> VxWorks 6.4
+</td><td> BSP Provided
+</td></tr><tr><td> BCM91125
+</td><td> Linux 2.4.20
+</td><td> Available through MontaVista 3.1 Preview kit
+</td></tr><tr><td> BCM91125
+</td><td> Linux 2.6.10
+</td><td> Available through MontaVista 4.0 Professional
+</td></tr><tr><td> BCM91125
+</td><td> Linux 2.6.14
+</td><td> Available through WindRiver Linux 1.5
+</td></tr><tr><td> BCM91125
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM5621X
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5621X
+</td><td> VxWorks 6.4
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5621X
+</td><td> Linux 2.6.14
+</td><td> Available through WindRiver Linux 1.5 <tt>bcm_ntswics</tt>
+</td></tr><tr><td> BCM5621X
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0 <tt>bcm_ntswics</tt>
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM5331X
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5331X
+</td><td> VxWorks 6.4
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5331X
+</td><td> Linux 2.6.14
+</td><td> Available through WindRiver Linux 1.5 <tt>bcm_ntswics</tt>
+</td></tr><tr><td> BCM5331X
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0 <tt>bcm_ntswics</tt>
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM98548XMC
+</td><td> VxWorks 6.4
+</td><td> BSP Provided
+</td></tr><tr><td> BCM98548XMC
+</td><td> VxWorks 6.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM98548XMC
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td> BCM98548XMC
+</td><td> Linux 2.6.27
+</td><td> Available through WindRiver Linux 3.0. Note: Additional patches for issues WIND00172598 and WIND00161649 are required. Contact your WindRiver support personnel for these patches and other WindRiver information.
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM5300X
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5300X
+</td><td> VxWorks 6.6
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5300X
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td> BCM5300X
+</td><td> Linux 2.6.27
+</td><td> Available through WindRiver Linux 3.x
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> BCM5360X
+</td><td> VxWorks 5.5
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5360X
+</td><td> VxWorks 6.6
+</td><td> BSP Provided
+</td></tr><tr><td> BCM5360X
+</td><td> Linux 2.6.21
+</td><td> Available through WindRiver Linux 2.0
+</td></tr><tr><td> BCM5360X
+</td><td> Linux 2.6.27
+</td><td> Available through WindRiver Linux 3.x
+</td></tr><tr><td></td><td></td><td></td></tr><tr><td> Generic X86
+</td><td> Linux 2.6.25/2.6.27
+</td><td></td></tr></tbody></table><p><br><hr noshade><a name="refdesigns"></a>
+<h3>Section 5.6.6:   Reference Designs
+</h3>
+<p>The following Switch Reference Designs are available from Broadcom
+and are supported in the SDK.
+<p><h3>Table 16:   Reference Designs
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b>  Platform</b></td><td><b> Description
+</b></td></tr><tr><td> BCM95324R24GM 
+</td><td> 24-port FE + 2-port GE 5324 SW Ref. Design
+</td></tr><tr><td> BCM95347R24M
+</td><td> 24-port FE + 4 GE 5347 - 5836 CPU Managed Switch Ref. Design
+</td></tr><tr><td> BCM95348R48M
+</td><td> 48-port FE + 4 GE 5348 - 5836 CPU Managed Switch Ref. Design
+</td></tr><tr><td> BCM95395R5GM
+</td><td> 5-port GE 5395 Switch Ref Design - Managed (BCM5836)
+</td></tr><tr><td> BCM95396R16GM
+</td><td> 16-port GE + 1-port FE(SFP) 5396 Switch Ref Design - Managed (BCM5836)
+</td></tr><tr><td> BCM953001R24M
+</td><td> 24-port FE + 2-port GE 53242 SW Ref. Design with BCM53001 Processor
+</td></tr><tr><td> BCM953115R5GM 
+</td><td> 5-port GE + 1-port serdes 53115 Ref. Design
+</td></tr><tr><td> BCM953125RM 
+</td><td> 5-port GE 53125 Ref. Design
+</td></tr><tr><td> BCM95324R24GM 
+</td><td> 24-port FE + 2-port GE 5324 SW Ref. Design
+</td></tr><tr><td> BCM953242R24M
+</td><td> 24-port FE + 2-port GE 53242 SW Ref. Design
+</td></tr><tr><td> BCM953262R24M
+</td><td> 24-port FE + 4-port GE 53262 SW Ref. Design
+</td></tr><tr><td> BCM953284R
+</td><td> 24-port FE + 2-port GE 53284 SW Ref. Design
+</td></tr><tr><td> BCM953284MDU
+</td><td> 24-port FE 53284 SW Ref. Design with TK3715 EPON ONU MAC/Serdes
+</td></tr><tr><td> BCM953286R
+</td><td> 24-port FE + 4-port GE 53286 SW Ref. Design
+</td></tr><tr><td> BCM953300
+</td><td> 24-port GE 53300 Switch Ref Design
+</td></tr><tr><td> BCM953302
+</td><td> 48-port GE 53302 Switch Ref Design
+</td></tr><tr><td> BCM953314K
+</td><td> 24-port GE - 53314 System Verification Kit
+</td></tr><tr><td> BCM953314R24GS
+</td><td> 24-port GE - 53314 Switch Ref Design
+</td></tr><tr><td> BCM953604R
+</td><td> 24-port FE + 1-port 1/2G EPON ONU MAC/SerDes Reference Design
+</td></tr><tr><td> BCM956018K48T 
+</td><td> 48-port FE + 2-port GE + 2-port HGL(CAT 7) - 56018 SVK
+</td></tr><tr><td> BCM956024K24T 
+</td><td> 24-port FE + 4-port HGL(CAT 7) - 56024 SVK
+</td></tr><tr><td> BCM956102R48XS
+</td><td> 48-port FE + 4 port GE 56102 SW Ref Design w/2-HiGig/10GE
+</td></tr><tr><td> BCM956112R48XS-02
+</td><td> 48-port FE + 4 port GE 56112 SW Ref Design w/2-HiGig/10GE - PPC8245
+</td></tr><tr><td> BCM956132K
+</td><td> 24-port FE 56132 SW SVK Design w/ two 10GE/HiGig2 and two 1G/2.5Gb Uplink Ports
+</td></tr><tr><td> BCM956214R26T
+</td><td> 26-port GE (2 TX/SX) + 2-port HGL(CAT 7) - 56214 Reference Design
+</td></tr><tr><td> BCM956219K50T
+</td><td> 50-port GE + 2-port HGL(CAT 7) - 56218 - PPC8245 SVK
+</td></tr><tr><td> BCM956218K50T
+</td><td> 50-port GE + 2-port HGL(CAT 7) - 56218 System Verification Kit
+</td></tr><tr><td> BCM956224K24T 
+</td><td> 24-port GE + 4-port HGL(CAT 7) - 56224 SVK
+</td></tr><tr><td> BCM956224R24F
+</td><td> 24-port GE + 4-port GE SFP - BCM56224 Reference board.
+</td></tr><tr><td> BCM956300R24
+</td><td> 24-port GE 56300 Switch Ref Design
+</td></tr><tr><td> BCM956304R24XS
+</td><td> 24-port GE (2 TX/SX) 56304 SW Ref Des w/2-HiGig + 2-10GE
+</td></tr><tr><td> BCM956314R24ST
+</td><td> 24-port GE + 4 HiGig/2.5GE(CAT 7) 56314 Ref Design
+</td></tr><tr><td> BCM956314R24XST
+</td><td> 24-port GE + 4 10GE/HiGig/2.5GE(CX4) - 56314 Ref Design
+</td></tr><tr><td> <tt>BCM956334K_02</tt>/<tt>BCM956334K_03</tt>
+</td><td> 24xGE + 4x10G/13HG (iPass) with BCM56334 switch
+</td></tr><tr><td> BCM956500R24
+</td><td> 24-port GE 56500 Switch Ref Design
+</td></tr><tr><td> BCM956504R24XS
+</td><td> 24-port GE (2 TX/SX) 56504 SW Ref Des w/2-HiGig + 2-10GE
+</td></tr><tr><td> BCM956504R48XSP
+</td><td> 48-port GE (12 w/POE) 56504 Switch Ref Design 4 - HiGig/10GE
+</td></tr><tr><td> BCM95650K24
+</td><td> 24-port FE + 4 port GE Switch Development Kit
+</td></tr><tr><td> BCM95650R24
+</td><td> 24-port FE + 4 port GE (TX or SFP) Reference Design
+</td></tr><tr><td> BCM956514R24XST
+</td><td> 24-port GE + 4 10GE/HiGig/2.5GE(CX4) - 56514 Ref Design
+</td></tr><tr><td> BCM956514R48XSP
+</td><td> 48-port GE (12 w/POE) 56514 Switch Ref Design 4 - HiGig/10GE
+</td></tr><tr><td> BCM956580K16TXS
+</td><td> 16-port 2.5G SFP Fibre + 4 HiGig/10GE 56580 SDK
+</td></tr><tr><td> BCM956601K12D
+</td><td> 12-port GE + 1-HiGig 56601 DDR SDRAM SDK
+</td></tr><tr><td> BCM956601K12N
+</td><td> 12-port GE + 1-HiGig 56601 Netlogic TCAM SDK
+</td></tr><tr><td> BCM956602KXSN
+</td><td> 1-HiGig + 1-10GE 56602 Netlogic TCAM SDK
+</td></tr><tr><td> BCM95665K48
+</td><td> 48-port FE + 4 port GE TX/SX + 1HiGig Switch Development Kit
+</td></tr><tr><td> BCM956700K16S
+</td><td> 16-port HiGig CX4 56700 SDK
+</td></tr><tr><td> BCM95670K8
+</td><td> 8-port 5670 GE Switch Development Kit
+</td></tr><tr><td> BCM95673K2S
+</td><td> 2 x 5673 10-GE + HiGig Switch Development Kit
+</td></tr><tr><td> BCM95673R8
+</td><td> 8-port 5673 10 GE XFP Switch Reference Design
+</td></tr><tr><td> BCM95673R8CX4
+</td><td> 8-port 5673 10 GE CX4 Switch Reference Design
+</td></tr><tr><td> BCM95675K8
+</td><td> 8-port 5675 GE Switch Development Kit
+</td></tr><tr><td> BCM95675K8U
+</td><td> 8-port 5675 GE Switch Development Kit - PPC8245
+</td></tr><tr><td> BCM956800K20X
+</td><td> 20-port 10 GE CX4 56800 SDK
+</td></tr><tr><td> BCM95690K24S
+</td><td> 24-port 5690 GE Switch Development Kit w/2HiGig
+</td></tr><tr><td> BCM95690K24
+</td><td> 24-port 5690 GE Switch Development Kit
+</td></tr><tr><td> BCM95690P24REF
+</td><td> 24-port 5690 GE + 5671 w/2HiGig Ports Reference Design
+</td></tr><tr><td> BCM95690R24
+</td><td> 24-port 5690 GE Ports Reference Design
+</td></tr><tr><td> BCM95690R24S
+</td><td> 24-port 5690 GE + 5671 w/2HiGig Ports Reference Design
+</td></tr><tr><td> BCM95690R48S
+</td><td> 48-port 5690 GE + 5670 w/4HiGig Ports Reference Design
+</td></tr><tr><td> BCM95690R48X2S
+</td><td> 48-port 5690 GE + 5670 w/2-HiGig Ports + 2-10-GE Ports Ref. Design
+</td></tr><tr><td> BCM95691K12
+</td><td> 12-port 5691 GE Switch Development Kit
+</td></tr><tr><td> BCM95695K24
+</td><td> 24-port 5695 GE Switch Development Kit
+</td></tr><tr><td> BCM95695R24S
+</td><td> 24-port 5695 GE + 5671 w/2HiGig Ports Reference Design
+</td></tr><tr><td> BCM95695R24X2S
+</td><td> 24-port 5695 GE + 2-port 5675 HiGig + 2-port 5674 10GE CX4
+</td></tr><tr><td> BCM95695R48X2S
+</td><td> 48-port 5695 GE + 5670 w/2-HiGig Ports + 2-10-GE Ports Ref. Design
+</td></tr><tr><td> BCM91125CFM16
+</td><td> BCM956010CS Dual 5675 Fabric + 1125H CPU
+</td></tr><tr><td> BCM91125CFM8
+</td><td> BCM956006CS Single 5675 Fabric + 1125H CPU
+</td></tr><tr><td> BCM956501LM
+</td><td> 12-port 10GE CX4 56501/5675 Line Module
+</td></tr><tr><td> BCM956504LM
+</td><td> 48-port GE 56504 Line Module
+</td></tr><tr><td> BCM956700CFM16
+</td><td> 16-HiGig 56700 Fabric + BCM1125 CPU Module
+</td></tr><tr><td> BCM95674LM
+</td><td> 6-port 10GE CX4 5674/5675 Line Module
+</td></tr><tr><td> BCM956802LM
+</td><td> 12-port 10GE CX4 56802 Line Module
+</td></tr><tr><td> BCM95695LM
+</td><td> 48-port GE 5695/5675 Line Module
+</td></tr><tr><td> BCM956802CFM8
+</td><td> BCM956006CS 56802 Fabric + 8 10GE + 1125H CPU
+</td></tr><tr><td> <tt>BCM956680K24TS_02</tt>/<tt>BCM956680K24TS_05</tt>
+</td><td> 25 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2 Uplink ports SVK
+</td></tr><tr><td> <tt>BCM956624K49TS_02</tt>/ <tt>BCM956624K49TS_05</tt>
+</td><td> 49 port 1-GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2 Uplink ports and External Table Expansion SVK
+</td></tr><tr><td> <tt>BCM956624R49S_02</tt>
+</td><td> 49 port 1-GbE Multilayer Ethernet Switch with 4 x 10-GbE SFP+ Uplink ports BCM56624 reference board
+</td></tr><tr><td> <tt>BCM956634K49S_02</tt>
+</td><td> 49xGE + 4 x XAUI/HG (iPass) with BCM56634 switch
+</td></tr><tr><td> <tt>BCM956636K25S_02</tt>
+</td><td> 24x1GE + 2x12HG + 4x16HG (iPass) with BCM56636 switch
+</td></tr><tr><td> <tt>BCM956638K8XS_02</tt>
+</td><td> 4x12HG + 4x16HG (iPass) with BCM56638 switch
+</td></tr><tr><td> <tt>BCM956639K25S_02</tt>
+</td><td> 24x1GE + 8x10G (iPass) with BCM56639 switch
+</td></tr><tr><td> <tt>BCM956526K29S_02</tt>
+</td><td> 28x1GE + 6x12HG (iPass) with BCM56526 switch
+</td></tr><tr><td> <tt>BCM956685K24TS_02</tt>
+</td><td> 24 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2 Uplink ports SVK
+</td></tr><tr><td> <tt>BCM956820K24XG_02</tt>/<tt>BCM956820K24XG_05</tt>
+</td><td> 24 x 10-GbE + 4 x 1-GbE Multilayer Ethernet Switch SVK
+</td></tr><tr><td> <tt>BCM956820R24XG_02</tt>
+</td><td> 24 x 10-GbE + 4 x 1-GbE BCM56820 Multilayer Ethernet Switch Reference board with SFP+ interface.
+</td></tr><tr><td> <tt>BCM956825K24XG_02</tt>
+</td><td> 16 x 10-GbE + 8 x 20-Gbps HG2 + 1 x 1-GbE Multilayer Ethernet Switch Reference board.
+</td></tr><tr><td> <tt>BCM956720K16S_02</tt>/<tt>BCM956720K16S_05</tt>
+</td><td> 16-Port, 256-Gbps Switch Fabric + 4 x 1-GbE SVK
+</td></tr><tr><td> <tt>BCM956725K16S_02</tt>/<tt>BCM956725K16S_05</tt>
+</td><td> 8-Port (20Gbps) + 4-port (16Gbps) Switch Fabric + 4 x 1-GbE SVK
+</td></tr><tr><td> BCM988020QSK24X2
+</td><td> Carrier Ethernet 24-port GE + 2-port 10GbE Reference Design (also known as Metrocore)
+</td></tr><tr><td> BCM988130FK24X2
+</td><td> Carrier Ethernet 24-port GE + 2-port 10GbE Reference Design (also known as Polaris Line card)
+</td></tr><tr><td> BCM988025QSK24X2
+</td><td> Carrier Ethernet 24-port GE + 2-port 10GbE Reference Design (also known as C2 SVK)
+</td></tr><tr><td> <tt>BCM988130K_02</tt>
+</td><td> BCM88130 SVK with 96 fabric serdes connections (24 iPass ports)
+</td></tr><tr><td> <tt>BCM988235K_02</tt>
+</td><td> BCM88235 SVK with 4 HiGig2 ports (4 iPass), 2 flow control ports (2 iPass)
+</td></tr><tr><td> BCM953724R26WS
+</td><td> 26-Port, 26-Gbps Integrated Multilayer Switch and CPU
+</td></tr><tr><td> BCM956628K8TS
+</td><td> 8 port 10-GbE/HiGig2 Multilayer Ethernet Switch with External Table Expansion
+</td></tr><tr><td> BCM956620K24TS
+</td><td> 24 port 1-GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td> BCM956684K24TS
+</td><td> 24 port 1-GbE/2.5GbE Multilayer Ethernet Switch with 4 x 10-GbE/HiGig2 Uplink ports
+</td></tr><tr><td> BCM956725K16S
+</td><td> 8 Port, 20-Gbps + 4 Port, 16-Gbps HiGig2 Switch Fabric
+</td></tr><tr><td> BCM956626K8TS
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 6 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td> BCM956629K24S
+</td><td> 25 port 1-GbE Multilayer Ethernet Switch with 8 x 10-GbE/HiGig2 Uplink ports and External Table Expansion
+</td></tr><tr><td> BCM956224R50T
+</td><td> 50-port GE + 2-port HGL(CAT 7) - 2 X BCM56224
+</td></tr><tr><td> BCM956024R50T
+</td><td> 48-port FE + 2-port GE + 2-port HGL(CAT 7) - 2 X BCM56024
+</td></tr><tr><td> <tt>BCM956524K24S_02</tt>
+</td><td> 24xGE + 4 x XAUI/HG (iPass) with BCM56524 switch
+</td></tr><tr><td> <tt>BCM956521K_02</tt>
+</td><td> 24-Port GbE Multilayer Switch with 10 GbE/HiGig2 Uplink Ports
+</td></tr><tr><td> <tt>BCM956740K_02</tt>
+</td><td> 480/640 Gbps Switch fabric
+</td></tr><tr><td> <tt>BCM956743K_02</tt>
+</td><td> 480/640 Gbps Switch fabric
+</td></tr><tr><td> <tt>BCM956840K_02</tt>
+</td><td> 320/480/640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td> <tt>BCM956845K_02</tt>
+</td><td> 320/480/640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td> BCM956846KQ
+</td><td> 320/480/640 Gbps Ethernet Multilayer Switch
+</td></tr><tr><td> BCM98727MC
+</td><td> 16 port Ipass to SFP+ Media Converter
+</td></tr><tr><td> BCM956534K24TS
+</td><td> 24xGE + 4 x XAUI/HG (iPass) with BCM56534 switch
+</td></tr><tr><td> BCM956538K49S
+</td><td> 48-Port GbE Multilayer Switch with Four 10-GbE/HiGig2 Uplink Ports SVK
+</td></tr></tbody></table><p>Note: The flash sizes of some old BCM53XX platforms are 4 MBytes only.
+As the code size of SDK increases, the 4 MB flash is not enough for this
+release. Replace the flash to 8 MB or above for 
+those reference designs.
+<p><p><br><br><hr noshade><br><br>
+    <a name=section_Appendix_A>
+    <h3>Section 6:  SDK Externally Licensed Software Components
+</h3>
+<p>SDK contains a number of third-party externally licensed software components.
+This appendix contains information regarding these components, the license for each of these components, and where these components are used in SDK.
+<h3>Table 17:   EXTERNALLY LICENSED SOFTWARE COMPONENTS
+</h3>
+<table cellpadding="4" cellspacing="0" border="1" summary="section"><tbody><tr><td><tr><td><b> Component
+ </b></td><td><b> Origin
+ </b></td><td><b> Location in source tree
+ </b></td><td><b> License terms and conditions
+</b></td></tr><tr><td> EDITLINE
+ </td><td> /afs/athena.mit.edu/contrib/sipb/src/editline
+ </td><td> src/sal/appl/editline
+ </td><td>  See  <a href="#EDITLINE_license_terms_and_conditions">Section 6.1:  EDITLINE License terms and conditions
+</a> </td></tr><tr><td> CINT
+ </td><td> http://www.gnu.org/software/bison/
+ </td><td> src/appl/cint/<tt>cint_parser</tt>.[ch]
+ </td><td>  See  <a href="#CINT_license_terms_and_conditions">Section 6.2:  CINT parser license terms and conditions
+</a> </td></tr><tr><td> CES Driver
+ </td><td> BATM Advanced Communications Ltd
+ </td><td> src/soc/ces/<tt>nemo_driver</tt>/*.[ch], src/soc/ces/clsbuilder/*.[ch]
+ </td><td>  See  <a href="#CES_Driver_license_terms_and_conditions">Section 6.3:  Circuit Emulation Service (CES) Driver terms and conditions
+</a> </td></tr></tbody></table><br><hr noshade><a name="EDITLINE_license_terms_and_conditions"></a>
+<h3>Section 6.1:   EDITLINE License terms and conditions
+</h3>
+<blockquote><pre>This package was obtained from the following location, and was modified
+for purposes of inclusion into the SOC diagnostics shell.
+
+Removed files:
+        MANIFEST Make.os9 Makefile os9.h sysos9.c testit.c unix.h
+
+Added files:
+        sysvxworks.c Makefile
+
+Changed functionality:
+        Merged unix.h into editline.h
+        M-P and M-N now behave like tcsh.
+        <tt>list_history</tt>(count) routine displays history
+        Commented out completion
+        Changed <tt>rl_complete</tt> and <tt>rl_list_possib</tt> into caller-settable
+                global functions
+        Don't ring bell on TAB if word is already complete
+
+------------------------------------------------------------------------------
+
+Index of /afs/athena.mit.edu/contrib/sipb/src/editline
+
+[     ] Name                   Last modified     Size  Description
+  ------------------------------------------------------------------------
+
+ [DIR]  Parent Directory       11-May-99 03:40      -
+ [   ]  MANIFEST               07-Jul-97 11:20     1k
+ [   ]  Make.os9               07-Jul-97 11:20     1k
+ [   ]  Makefile               01-Sep-97 00:34     2k
+ [   ]  complete.c             07-Jul-97 11:20     4k
+ [   ]  editline.3             07-Jul-97 11:20     5k
+ [   ]  editline.c             07-Jul-97 11:20    25k
+ [   ]  editline.h             07-Jul-97 11:20     2k
+ [   ]  os9.h                  07-Jul-97 11:20     1k
+ [   ]  sysos9.c               07-Jul-97 11:20     1k
+ [   ]  sysunix.c              07-Jul-97 11:20     3k
+ [   ]  testit.c               07-Jul-97 11:20     1k
+ [   ]  unix.h                 07-Jul-97 11:20     1k
+
+  ------------------------------------------------------------------------
+
+$Revision: 1.3 $
+
+This is a line-editing library.  It can be linked into almost any
+program to provide command-line editing and recall.
+
+It is call-compatible with the FSF readline library, but it is a
+fraction of the size (and offers fewer features).  It does not use
+standard I/O.  It is distributed under a "C News-like" copyright.
+
+Configuration is done in the Makefile.  Type "make testit" to get
+a small slow shell for testing.
+
+This contains some changes since the posting to comp.sources.misc:
+    -   Bugfix for completion on absolute pathnames.
+    -   Better handling of M-n versus showing raw 8bit chars.
+    -   Better signal handling.
+    -   Now supports termios/termio/sgttyb ioctl's.
+    -   Add M-m command to toggle how 8bit data is displayed.
+The following changes, made since the last public release, come from
+J.G. Vons &lt;vons@cesar.crbca1.sinet.slb.com&gt;:
+    -   History-searching no longer redraws the line wrong
+    -   Added ESC-ESC as synonym for ESC-?
+    -   SIGQUIT (normally ^\) now sends a signal, not indicating EOF.
+    -   Fixed some typo's and unclear wording in the manpage.
+    -   Fixed completion when all entries shared a common prefix.
+    -   Fixed some meta-char line-redrawing bugs.
+
+Enjoy,
+        Rich $alz
+        &lt;rsalz@osf.org&gt;
+
+ Copyright 1992,1993 Simmule Turner and Rich Salz.  All rights reserved.
+
+ This software is not subject to any license of the American Telephone
+ and Telegraph Company or of the Regents of the University of California.
+
+ Permission is granted to anyone to use this software for any purpose on
+ any computer system, and to alter it and redistribute it freely, subject
+ to the following restrictions:
+ 1. The authors are not responsible for the consequences of use of this
+    software, no matter how awful, even if they arise from flaws in it.
+ 2. The origin of this software must not be misrepresented, either by
+    explicit claim or by omission.  Since few users ever read sources,
+    credits must appear in the documentation.
+ 3. Altered versions must be plainly marked as such, and must not be
+    misrepresented as being the original software.  Since few users
+    ever read sources, credits must appear in the documentation.
+ 4. This notice may not be removed or altered.
+</pre></blockquote><p><br><hr noshade><a name="CINT_license_terms_and_conditions"></a>
+<h3>Section 6.2:   CINT parser license terms and conditions
+</h3>
+<blockquote><pre>The C code for the parser CINT was generated by using GNU Bison parser
+generator from the file <tt>cint_grammar</tt>.y   CINT is an optional diagnostic
+tool that can be included in your system  by adding CINT to the
+<tt>FEATURE_LIST</tt> in SDK compilation flags.
+
+Removed files:
+        None
+
+Added files:
+        None
+
+Changed functionality:
+        None
+
+------------------------------------------------------------------------------
+/* A Bison parser, made by GNU Bison 2.4.1.  */
+
+/* Skeleton implementation for Bison's Yacc-like parsers in C
+
+      Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.  */
+
+/* As a special exception, you may create a larger work that contains
+   part or all of the Bison parser skeleton and distribute that work
+   under terms of your choice, so long as that work isn't itself a
+   parser generator using the skeleton or a modified version thereof
+   as a parser skeleton.  Alternatively, if you modify or redistribute
+   the parser skeleton itself, you may (at your option) remove this
+   special exception, which will cause the skeleton and the resulting
+   Bison output files to be licensed under the GNU General Public
+   License without this special exception.
+
+   This special exception was added by the Free Software Foundation in
+   version 2.2 of Bison.  */
+
+/* C LALR(1) parser skeleton written by Richard Stallman, by
+   simplifying the original so-called "semantic" parser.  */
+</pre></blockquote><p><br><hr noshade><a name="CES_Driver_license_terms_and_conditions"></a>
+<h3>Section 6.3:   Circuit Emulation Service (CES) Driver terms and conditions
+</h3>
+<blockquote><pre>The Circuit Emulation Services (CES) driver code provided herewith is provided
+by BATM Advanced Communications Ltd (BATM) and is subject to licensing agreement
+between BATM and Broadcom Corporation. 
+</pre></blockquote><p></html></body>

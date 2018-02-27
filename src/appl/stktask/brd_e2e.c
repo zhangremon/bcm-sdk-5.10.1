@@ -1,0 +1,763 @@
+/*
+ * $Id: brd_e2e.c 1.21.178.1 Broadcom SDK $
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ *
+ * File:        brd_e2e.c
+ * Purpose:	XGS Board End-to-end flow control programming
+ *		Supports boards with up to 4 BCM5695 devices, and
+ *              dual BCM56504 board only.
+ *		Other XGS1 and XGS2 devices are not end-to-end capable.
+ */
+
+#include <soc/drv.h>
+#include <soc/higig.h>
+
+#include <bcm/error.h>
+#include <bcm/stack.h>
+#include <bcm/link.h>
+#include <bcm/port.h>
+#include <bcm/trunk.h>
+
+#include <appl/cputrans/next_hop.h>
+#include <appl/stktask/topo_brd.h>
+
+#define	E2E_CAPABLE(_u)	(SOC_IS_DRACO15(_u) || SOC_IS_FB_FX_HX(_u))
+
+#ifndef E2E_MAXUNIT
+#define	E2E_MAXUNIT	4
+#endif
+
+#define	E2E_ETHERTYPE	0x8874
+#define	E2E_OPCODE_HOL	0xbc01
+#define	E2E_OPCODE_IBP	0xbc02
+
+#ifndef E2E_PKT_DEFRATE
+#define	E2E_PKT_DEFRATE		0x100
+#endif
+
+#ifndef E2E_CELL_DEFLIMIT
+#define	E2E_CELL_DEFLIMIT	73	/* cells for a jumbo + 1 */
+#endif
+
+#ifndef E2E_PKT_DEFLIMIT
+#define	E2E_PKT_DEFLIMIT	0x7ff	/* no limit */
+#endif
+
+#define	E2E_CELL_NOLIMIT	0x1fff
+
+#define	E2E_PKT_NOLIMIT		0x7ff
+
+
+#ifdef BCM_XGS3_SWITCH_SUPPORT
+
+#ifndef E2E_MAXUNIT_FB
+#define E2E_MAXUNIT_FB          2
+#endif
+
+#ifndef E2E_FB_PKT_LIMIT
+#define E2E_FB_PKT_LIMIT        0x90
+#endif
+
+#ifndef E2E_FB_CELL_LIMIT
+#define E2E_FB_CELL_LIMIT       0x180
+#endif
+
+#ifndef E2E_CELL_DISCARD_LIMIT
+#define E2E_CELL_DISCARD_LIMIT  0x300
+#endif
+
+#ifndef E2E_PKTCELL_RESET_LIMIT
+#define E2E_PKTCELL_RESET_LIMIT 0x1
+#endif
+
+#ifndef E2E_MAXTIMER_DEFSEL
+#define E2E_MAXTIMER_DEFSEL     0xb
+#endif
+
+#ifndef E2E_MINTIMER_DEFSEL
+#define E2E_MINTIMER_DEFSEL     0x3
+#endif
+
+#endif /* BCM_XGS3_SWITCH)SUPPORT */
+
+STATIC int	_bcm_e2e_pkt_rate = E2E_PKT_DEFRATE;
+STATIC int	_bcm_e2e_cell_limit = E2E_CELL_DEFLIMIT;
+STATIC int	_bcm_e2e_pkt_limit = E2E_PKT_DEFLIMIT;
+
+int
+bcm_board_e2e_config_set(int pkt_rate, int cell_limit, int pkt_limit)
+{
+    _bcm_e2e_pkt_rate = pkt_rate < 0 ? E2E_PKT_DEFRATE : pkt_rate;
+    _bcm_e2e_cell_limit = cell_limit < 0 ? E2E_CELL_DEFLIMIT : cell_limit;
+    _bcm_e2e_pkt_limit = pkt_limit < 0 ? E2E_PKT_DEFLIMIT : pkt_limit;
+    return BCM_E_NONE;
+}
+
+int
+bcm_board_e2e_config_get(int *pkt_rate, int *cell_limit, int *pkt_limit)
+{
+    if (pkt_rate != NULL) {
+	*pkt_rate = _bcm_e2e_pkt_rate;
+    }
+    if (cell_limit != NULL) {
+	*cell_limit = _bcm_e2e_cell_limit;
+    }
+    if (pkt_limit != NULL) {
+	*pkt_limit = _bcm_e2e_pkt_limit;
+    }
+    return BCM_E_NONE;
+}
+
+#ifdef BCM_DRACO15_SUPPORT
+STATIC void
+_bcm_board_e2e_link_handler(int unit,
+			    bcm_port_t port,
+			    bcm_port_info_t *info)
+{
+    int		cell_limit, pkt_limit, i, j, nr;
+    int		runit, neunits, eunits[E2E_MAXUNIT];
+
+    if (!IS_E_PORT(unit, port)) {
+	return;
+    }
+
+    if (info->linkstatus && info->pause_tx) {
+	cell_limit = _bcm_e2e_cell_limit;
+	pkt_limit = _bcm_e2e_pkt_limit;
+    } else {
+	cell_limit = E2E_CELL_NOLIMIT;
+	pkt_limit = E2E_PKT_NOLIMIT;
+    }
+
+    /* find e2e capable units */
+    neunits = 0;
+    for (runit = 0; runit < soc_ndev; runit++) {
+	if (E2E_CAPABLE(runit)) {
+	    eunits[neunits] = runit;
+	    neunits += 1;
+	    if (neunits == E2E_MAXUNIT) {
+		break;
+	    }
+	}
+    }
+
+    for (i = 0; i < neunits; i++) {
+	runit = eunits[i];
+
+	if (runit == unit) {
+	    continue;
+	}
+	nr = 0;
+	for (j = 0; j < neunits; j++) {
+	    if (j == i) {
+		continue;
+	    }
+	    nr += 1;
+	    if (eunits[j] == unit) {
+		break;
+	    }
+	}
+
+	/* update limits for remote ports on each e2e unit */
+	switch (nr) {
+	case 1:
+	    (void) WRITE_E2EIBPCELLSETLIMIT1r(runit, port, cell_limit);
+	    (void) WRITE_E2EIBPPKTSETLIMIT1r(runit, port, pkt_limit);
+	    break;
+	case 2:
+	    (void) WRITE_E2EIBPCELLSETLIMIT2r(runit, port, cell_limit);
+	    (void) WRITE_E2EIBPPKTSETLIMIT2r(runit, port, pkt_limit);
+	    break;
+	case 3:
+	    (void) WRITE_E2EIBPCELLSETLIMIT3r(runit, port, cell_limit);
+	    (void) WRITE_E2EIBPPKTSETLIMIT3r(runit, port, pkt_limit);
+	    break;
+	default:
+	    break;
+	}
+    }
+}
+
+/*
+ * Works only on a 5695
+ */
+STATIC int
+_bcm_board_e2e_xgs2_unit(int unit, 
+                         int lmod, 
+                         int cos,
+                         int vlan,
+                         bcm_mac_t mac,
+                         int *rmod,
+                         int **rpstate)
+{
+    uint32		val;
+    bcm_port_t		port;
+    int			cell_limit, pkt_limit;
+    uint64		val64;
+    soc_higig_hdr_t	hg;
+    uint32		hgwords[3];
+
+    port = IPIC_PORT(unit);
+    if (port < 0) {
+	return BCM_E_PARAM;
+    }
+
+    /* set remote module ids */
+    val = 0;
+    if (rmod[0] >= 0) {
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE1f, rmod[0]);
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE1_ENf, 1);
+    }
+    if (rmod[1] >= 0) {
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE2f, rmod[1]);
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE2_ENf, 1);
+    }
+    if (rmod[2] >= 0) {
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE3f, rmod[2]);
+	soc_reg_field_set(unit, SRCMOD2IBPr, &val,
+			  SRCMOD2IBP_MODULE3_ENf, 1);
+    }
+    SOC_IF_ERROR_RETURN(WRITE_SRCMOD2IBPr(unit, val));
+
+    /* define packet recognition criteria */
+    val = (mac[0] << 8) | mac[1];
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_RX_DA_MSr(unit, port, val));
+    val = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_RX_DA_LSr(unit, port, val));
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_RX_LENGTH_TYPEr(unit, port, E2E_ETHERTYPE));
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_RX_OPCODEr(unit, port, E2E_OPCODE_IBP));
+
+    /* define packet higig header */
+    sal_memset(&hg, 0, sizeof(hg));
+    soc_higig_field_set(unit, &hg, HG_start, SOC_HIGIG_START);
+    soc_higig_field_set(unit, &hg, HG_hgi, SOC_HIGIG_HGI);
+    soc_higig_field_set(unit, &hg, HG_vlan_id, vlan);
+    soc_higig_field_set(unit, &hg, HG_src_mod, lmod);
+    soc_higig_field_set(unit, &hg, HG_opcode, SOC_HIGIG_OP_UC);
+    soc_higig_field_set(unit, &hg, HG_src_port, port);
+    soc_higig_field_set(unit, &hg, HG_dst_port, port);
+    soc_higig_field_set(unit, &hg, HG_cos, cos);
+
+    sal_memcpy(hgwords, &hg, sizeof(hgwords));
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_MH0r(unit, port, hgwords[0]));
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_MH1r(unit, port, hgwords[1]));
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_MH2r(unit, port, hgwords[2]));
+
+    /* define packet data header (da, sa, len/type, opcode) */
+    val = (mac[0] << 24) | (mac[1] << 16) | (mac[2] << 8) | mac[3];
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_D0r(unit, port, val));
+    val = (mac[4] << 24) | (mac[5] << 16) | (mac[0] << 8) | mac[1];
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_D1r(unit, port, val));
+    val = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_D2r(unit, port, val));
+    val = (E2E_ETHERTYPE << 16) | E2E_OPCODE_IBP;
+    SOC_IF_ERROR_RETURN(WRITE_IIBP_D3r(unit, port, val));
+
+    /* turn E2E messages on */
+    SOC_IF_ERROR_RETURN(READ_ICONFIGr(unit, port, &val64));
+    soc_reg64_field32_set(unit, ICONFIGr, &val64, IPIC_E2E_IBP_ENBLf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_ICONFIGr(unit, port, val64));
+
+    SOC_IF_ERROR_RETURN(READ_MISCCONFIGr(unit, &val));
+    soc_reg_field_set(unit, MISCCONFIGr, &val, E2E_ENf, 1);
+    SOC_IF_ERROR_RETURN(WRITE_MISCCONFIGr(unit, val));
+
+    SOC_IF_ERROR_RETURN(WRITE_IE2E_MAX_RATEr(unit, port, _bcm_e2e_pkt_rate));
+
+    PBMP_E_ITER(unit, port) {
+	if (rmod[0] >= 0 && rpstate[0][port]) {
+	    cell_limit = _bcm_e2e_cell_limit;
+	    pkt_limit = _bcm_e2e_pkt_limit;
+	} else {
+	    cell_limit = E2E_CELL_NOLIMIT;
+	    pkt_limit = E2E_PKT_NOLIMIT;
+	}
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPCELLSETLIMIT1r(unit, port, cell_limit));
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPPKTSETLIMIT1r(unit, port, pkt_limit));
+
+	if (rmod[1] >= 0 && rpstate[1][port]) {
+	    cell_limit = _bcm_e2e_cell_limit;
+	    pkt_limit = _bcm_e2e_pkt_limit;
+	} else {
+	    cell_limit = E2E_CELL_NOLIMIT;
+	    pkt_limit = E2E_PKT_NOLIMIT;
+	}
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPCELLSETLIMIT2r(unit, port, cell_limit));
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPPKTSETLIMIT2r(unit, port, pkt_limit));
+
+	if (rmod[2] >= 0 && rpstate[2][port]) {
+	    cell_limit = _bcm_e2e_cell_limit;
+	    pkt_limit = _bcm_e2e_pkt_limit;
+	} else {
+	    cell_limit = E2E_CELL_NOLIMIT;
+	    pkt_limit = E2E_PKT_NOLIMIT;
+	}
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPCELLSETLIMIT3r(unit, port, cell_limit));
+	SOC_IF_ERROR_RETURN
+	    (WRITE_E2EIBPPKTSETLIMIT3r(unit, port, pkt_limit));
+    }
+
+    return BCM_E_NONE;
+}
+#endif /* BCM_DRACO15_SUPPORT */
+
+#ifdef BCM_FIREBOLT_SUPPORT
+STATIC int
+_bcm_board_e2e_fbx_unit(int unit,
+                         int lmod,
+                         int cos,
+                         int vlan,
+                         bcm_mac_t mac,
+                         int *rmod,
+                         int **rpstate)
+{
+    uint32                val = 0;
+    bcm_port_t            port;
+    int	                  cell_limit, pkt_limit;
+    uint32                val0, val1, val2, val3;
+    soc_higig_hdr_t       hg;
+    uint32                hgwords[3];
+    bcm_trunk_t           tid;
+    bcm_trunk_add_info_t  ta_info;
+    bcm_trunk_chip_info_t ti;
+    int                   idx, trunk_found = 0;
+
+    if (rmod[0] < 0) {
+        return BCM_E_PARAM; /* or BCM_E_UNAVAIL ?? */
+    }
+
+    BCM_IF_ERROR_RETURN
+        (bcm_stk_modport_get(unit, rmod[0], &port));
+
+    sal_memset(&ti, 0, sizeof(bcm_trunk_chip_info_t));
+    BCM_IF_ERROR_RETURN(bcm_trunk_chip_info_get(unit, &ti));
+
+    /*
+     * Check for fabric trunk membership, and enable 
+     * E2E IBP on all trunk members
+     */
+    for (tid = ti.trunk_fabric_id_min; 
+         tid <= ti.trunk_fabric_id_max; tid++) {
+         sal_memset(&ta_info, 0, sizeof(bcm_trunk_add_info_t));
+         if (bcm_trunk_get(unit, tid, &ta_info) >= 0) {
+             for (idx = 0; idx < ta_info.num_ports; idx++) {
+                  if (ta_info.tp[idx] == port) {
+                      trunk_found = 1;
+                      break;
+                  }
+             }
+         }
+
+         if (trunk_found) {
+             break;
+         }
+    }
+
+    /*
+     * If fabric trunk not found for some reason, populate 
+     * the single HG port for IBP programming
+     */
+    if (!trunk_found) {
+        ta_info.num_ports = 1;
+        ta_info.tp[0] = port;
+    }
+
+    SOC_IF_ERROR_RETURN(READ_E2ECONFIGr(unit, &val));
+
+    /*
+     * set remote module id
+     */
+    soc_reg_field_set(unit, E2ECONFIGr, &val,
+                      REMOTE_SRCMODIDf, rmod[0]);
+
+    /*
+     * Turn on e2e IBP only (no HOL)
+     */
+    soc_reg_field_set(unit, E2ECONFIGr, &val, E2E_IBP_ENf, 1);
+    soc_reg_field_set(unit, E2ECONFIGr, &val, E2E_HOL_ENf, 1);
+    soc_reg_field_set(unit, E2ECONFIGr, &val, E2E_MAXTIMER_SELf,
+                      E2E_MAXTIMER_DEFSEL);
+    soc_reg_field_set(unit, E2ECONFIGr, &val, E2E_MINTIMER_SELf,
+                      E2E_MINTIMER_DEFSEL);
+    SOC_IF_ERROR_RETURN(WRITE_E2ECONFIGr(unit, val));
+
+    /* define packet higig header */
+    sal_memset(&hg, 0, sizeof(hg));
+    soc_higig_field_set(unit, &hg, HG_start, SOC_HIGIG_START);
+    soc_higig_field_set(unit, &hg, HG_hgi, SOC_HIGIG_HGI);
+    soc_higig_field_set(unit, &hg, HG_vlan_id, vlan);
+    soc_higig_field_set(unit, &hg, HG_src_mod, lmod);
+    soc_higig_field_set(unit, &hg, HG_opcode, SOC_HIGIG_OP_UC);
+    soc_higig_field_set(unit, &hg, HG_src_port, port);
+    soc_higig_field_set(unit, &hg, HG_dst_port, port);
+    soc_higig_field_set(unit, &hg, HG_cos, cos);
+    sal_memcpy(hgwords, &hg, sizeof(hgwords));
+
+    /* define packet data header (da, sa, len/type, opcode) */
+    val0 = (mac[0] << 24) | (mac[1] << 16) | (mac[2] << 8) | mac[3];
+    val1 = (mac[4] << 24) | (mac[5] << 16) | (mac[0] << 8) | mac[1];
+    val2 = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
+    val3 = (E2E_ETHERTYPE << 16) | E2E_OPCODE_IBP;
+
+    for (idx = 0; idx < ta_info.num_ports; idx++) {
+
+         port = ta_info.tp[idx];
+         if (!IS_HG_PORT(unit, port)) {
+             continue;
+         }
+
+         val = 0;
+         SOC_IF_ERROR_RETURN(READ_E2ECONFIGr(unit, &val));
+         switch(port) {
+         case 24:
+           soc_reg_field_set(unit, E2ECONFIGr, &val, XPORT24_SEND_E2E_IBPf, 1);
+           break;
+    
+         case 25:
+           soc_reg_field_set(unit, E2ECONFIGr, &val, XPORT25_SEND_E2E_IBPf, 1);
+           break;
+
+         case 26:
+           soc_reg_field_set(unit, E2ECONFIGr, &val, XPORT26_SEND_E2E_IBPf, 1);
+           break;
+
+         case 27:
+           soc_reg_field_set(unit, E2ECONFIGr, &val, XPORT27_SEND_E2E_IBPf, 1);
+           break;
+
+         default:
+           break;
+         }
+         SOC_IF_ERROR_RETURN(WRITE_E2ECONFIGr(unit, val));
+
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_MH0r(unit, port, hgwords[0]));
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_MH1r(unit, port, hgwords[1]));
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_MH2r(unit, port, hgwords[2]));
+
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_D0r(unit, port, val0));
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_D1r(unit, port, val1));
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_D2r(unit, port, val2));
+         SOC_IF_ERROR_RETURN(WRITE_XIBP_D3r(unit, port, val3));
+
+         val = 0;
+         SOC_IF_ERROR_RETURN(READ_IE2E_CONTROLr(unit, port, &val));
+         soc_reg_field_set(unit, IE2E_CONTROLr, &val, IBP_ENABLEf, 1);
+         SOC_IF_ERROR_RETURN(WRITE_IE2E_CONTROLr(unit, port, val));
+
+         val = 0;
+         SOC_IF_ERROR_RETURN(READ_XPORT_CONFIGr(unit, port, &val));
+         soc_reg_field_set(unit, XPORT_CONFIGr, &val, E2E_IBP_ENf, 1);
+         SOC_IF_ERROR_RETURN(WRITE_XPORT_CONFIGr(unit, port, val));
+
+         /*
+          * Setup pkt and cell limits for ibp
+          */
+         cell_limit = E2E_FB_CELL_LIMIT;
+         pkt_limit = E2E_FB_PKT_LIMIT;
+
+         val = 0;
+         soc_reg_field_set(unit, E2EIBPCELLSETLIMITr, &val, CELLSETLIMITf,
+                           cell_limit);
+         soc_reg_field_set(unit, E2EIBPCELLSETLIMITr, &val, RESETLIMITSELf,
+                           E2E_PKTCELL_RESET_LIMIT);
+         SOC_IF_ERROR_RETURN(WRITE_E2EIBPCELLSETLIMITr(unit, port, val));
+
+         val = 0;
+         soc_reg_field_set(unit, E2EIBPPKTSETLIMITr, &val, PKTSETLIMITf,
+                           pkt_limit);
+         soc_reg_field_set(unit, E2EIBPPKTSETLIMITr, &val, RESETLIMITSELf,
+                           E2E_PKTCELL_RESET_LIMIT);
+         SOC_IF_ERROR_RETURN(WRITE_E2EIBPPKTSETLIMITr(unit, port, val));
+
+         SOC_IF_ERROR_RETURN
+            (WRITE_E2EIBPDISCARDSETLIMITr(unit, port, 
+                                          E2E_CELL_DISCARD_LIMIT));
+    }
+
+    /*
+     * define packet recognition criteria for IBP
+     */
+    val = (mac[0] << 8) | mac[1];
+    SOC_IF_ERROR_RETURN(WRITE_E2E_IBP_RX_DA_MSr(unit, val));
+    val = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
+    SOC_IF_ERROR_RETURN(WRITE_E2E_IBP_RX_DA_LSr(unit, val));
+    SOC_IF_ERROR_RETURN(WRITE_E2E_IBP_RX_LENGTH_TYPEr(unit, E2E_ETHERTYPE));
+    SOC_IF_ERROR_RETURN(WRITE_E2E_IBP_RX_OPCODEr(unit, E2E_OPCODE_IBP));
+       
+    return BCM_E_NONE; 
+}
+#endif /* BCM_FIREBOLT_SUPPORT */
+
+STATIC int
+_bcm_board_e2e_unit(int unit,
+		    int lmod,
+		    int cos,
+		    int vlan,
+		    bcm_mac_t mac,
+		    int *rmod,
+		    int **rpstate)
+{
+   int rv = BCM_E_NONE;
+
+#ifdef BCM_DRACO15_SUPPORT
+   if (SOC_IS_DRACO15(unit)) {
+       rv = _bcm_board_e2e_xgs2_unit(unit, lmod, cos, vlan, mac,
+                                     rmod, rpstate);
+   }
+#endif
+
+#ifdef BCM_FIREBOLT_SUPPORT
+   if (SOC_IS_FIREBOLT(unit)) {
+       rv = _bcm_board_e2e_fbx_unit(unit, lmod, cos, vlan, mac,
+                                    rmod, rpstate);
+   }
+#endif
+
+   return rv;
+}
+
+
+int
+bcm_board_e2e_set(void)
+{
+    int		unit, neunits, i, cos, vlan;
+    int		eunits[E2E_MAXUNIT];
+    int		emods[E2E_MAXUNIT];
+    bcm_mac_t	mac;
+    int		lmod, nr, j, max_e2e_units;
+    int		pstate[E2E_MAXUNIT][SOC_MAX_NUM_PORTS];
+    int		rmod[E2E_MAXUNIT-1], *rpstate[E2E_MAXUNIT-1];
+    bcm_port_t	port;
+    int		pause_tx, pause_rx, link_up;
+
+    /* find e2e capable units */
+    neunits = 0;
+    max_e2e_units = E2E_MAXUNIT;
+
+#ifdef BCM_XGS3_SWITCH_SUPPORT
+    for (unit = 0; unit < soc_ndev; unit++) {
+         if (SOC_IS_FB_FX_HX(unit)) {
+             neunits++;
+             if (max_e2e_units != E2E_MAXUNIT_FB) {
+	         max_e2e_units = E2E_MAXUNIT_FB;
+             }
+         }
+    }
+
+    if (max_e2e_units == E2E_MAXUNIT_FB) {
+        /*
+	 * We've established there is a FB in the system;
+         * Allow E2E in a stacked system with only 2 FBs
+         */
+        if (neunits != max_e2e_units) {
+            return BCM_E_UNAVAIL;
+        }
+    }
+#endif
+
+    neunits = 0;
+    for (unit = 0; unit < soc_ndev; unit++) {
+	if (E2E_CAPABLE(unit)) {
+	    eunits[neunits] = unit;
+	    BCM_IF_ERROR_RETURN(bcm_stk_modid_get(unit, &emods[neunits]));
+	    neunits += 1;
+	    if (neunits == max_e2e_units) {
+		break;
+	    }
+	}
+    }
+
+    if (neunits < 2) {		/* need at least two devices */
+	return BCM_E_NONE;
+    }
+
+    /* use nexthop cos, vlan, mac for E2E packets */
+    if (next_hop_cos_get(&cos) < 0) {
+	cos = 0;
+    }
+
+    if (next_hop_vlan_get(&vlan) < 0) {
+	vlan = 1;
+    }
+    (void)nh_tx_local_mac_get(&mac);
+
+    /* get link/pause state */
+    sal_memset(pstate, 0, sizeof(pstate));
+    for (i = 0; i < neunits; i++) {
+	unit = eunits[i];
+	PBMP_E_ITER(unit, port) {
+	    if (bcm_port_pause_get(unit, port, &pause_tx, &pause_rx) < 0) {
+		continue;
+	    }
+	    if (!pause_tx) {
+		continue;
+	    }
+	    if (bcm_port_link_status_get(unit, port, &link_up) < 0) {
+		continue;
+	    }
+	    if (!link_up) {
+		continue;
+	    }
+	    pstate[i][port] = 1;
+	}
+    }
+
+    /* setup each unit for e2e */
+    for (i = 0; i < neunits; i++) {
+	unit = eunits[i];
+	lmod = emods[i];
+	rmod[0] = rmod[1] = rmod[2] = -1;
+	nr = 0;
+	for (j = 0; j < neunits; j++) {
+	    if (j == i) {
+		continue;
+	    }
+	    rmod[nr] = emods[j];
+	    rpstate[nr] = &pstate[j][0];
+	    nr += 1;
+	}
+	BCM_IF_ERROR_RETURN
+	    (_bcm_board_e2e_unit(unit, lmod, cos, vlan, mac,
+				 rmod, rpstate));
+    }
+
+#ifdef BCM_DRACO15_SUPPORT
+    /* register each unit for link changes */
+    for (i = 0; i < neunits; i++) {
+         unit = eunits[i];
+         if (SOC_IS_DRACO15(unit)) {
+	     BCM_IF_ERROR_RETURN
+	        (bcm_linkscan_register(unit, _bcm_board_e2e_link_handler));
+         }
+    }
+#endif /* BCM_DRACO15_SUPPORT */
+
+    return BCM_E_NONE;
+}
+
+/*
+ * E2E IBP programming for dual FB LMs
+ */
+int
+_bcm_board_dual_xgs3_e2e_set(int unit0, bcm_module_t modid0,
+                             int unit1, bcm_module_t modid1)
+{
+#ifdef BCM_FIREBOLT_SUPPORT
+    int		unit,  i, cos, vlan;
+    bcm_mac_t	mac;
+    int		lmod, nr, j;
+    int		pstate[E2E_MAXUNIT_FB][SOC_MAX_NUM_PORTS];
+    int		rmod[E2E_MAXUNIT_FB], *rpstate[E2E_MAXUNIT_FB];
+    bcm_port_t	port;
+    int		pause_tx, pause_rx, link_up;
+    xgs3devinfo_t dev[E2E_MAXUNIT_FB];
+    
+    dev[0].unit = unit0;
+    dev[0].modid = modid0;
+    dev[1].unit = unit1;
+    dev[1].modid = modid1;
+
+    /* use nexthop cos, vlan, mac for E2E packets */
+    if (next_hop_cos_get(&cos) < 0) {
+	cos = 0;
+    }
+
+    if (next_hop_vlan_get(&vlan) < 0) {
+	vlan = 1;
+    }
+    (void)nh_tx_local_mac_get(&mac);
+
+    /* get link/pause state */
+    sal_memset(pstate, 0, sizeof(pstate));
+    for (i = 0; i < E2E_MAXUNIT_FB; i++) {
+         unit = dev[i].unit;
+         PBMP_E_ITER(unit, port) {
+            if (bcm_port_pause_get(unit, port, &pause_tx, &pause_rx) < 0) {
+                continue;
+            }
+            if (!pause_tx) {
+                continue;
+            }
+            if (bcm_port_link_status_get(unit, port, &link_up) < 0) {
+                continue;
+            } 
+            if (!link_up) {
+                continue;
+            }
+            pstate[i][port] = 1;
+         }
+    }
+
+    /* setup each unit for e2e */
+    for (i = 0; i < E2E_MAXUNIT_FB; i++) {
+	unit = dev[i].unit;
+	lmod = dev[i].modid;
+	rmod[0] = rmod[1] = -1;
+	nr = 0;
+	for (j = 0; j < E2E_MAXUNIT_FB; j++) {
+	    if (j == i) {
+		continue;
+	    }
+	    rmod[nr] = dev[j].modid;
+	    rpstate[nr] = &pstate[j][0];
+	    nr += 1;
+	}
+
+	BCM_IF_ERROR_RETURN
+	   (_bcm_board_e2e_fbx_unit(unit, lmod, cos, vlan, mac,
+				    rmod, rpstate));
+    }
+#endif /* BCM_FIREBOLT_SUPPORT */
+
+    return BCM_E_NONE;
+}

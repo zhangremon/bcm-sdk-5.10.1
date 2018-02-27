@@ -1,0 +1,127 @@
+# $Id: sbx_qe2k_bscrn.soc 1.3 Broadcom SDK $
+# $Copyright: Copyright 2011 Broadcom Corporation.
+# This program is the proprietary software of Broadcom Corporation
+# and/or its licensors, and may only be used, duplicated, modified
+# or distributed pursuant to the terms and conditions of a separate,
+# written license agreement executed between you and Broadcom
+# (an "Authorized License").  Except as set forth in an Authorized
+# License, Broadcom grants no license (express or implied), right
+# to use, or waiver of any kind with respect to the Software, and
+# Broadcom expressly reserves all rights in and to the Software
+# and all intellectual property rights therein.  IF YOU HAVE
+# NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+# IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+# ALL USE OF THE SOFTWARE.  
+#  
+# Except as expressly set forth in the Authorized License,
+#  
+# 1.     This program, including its structure, sequence and organization,
+# constitutes the valuable trade secrets of Broadcom, and you shall use
+# all reasonable efforts to protect the confidentiality thereof,
+# and to use this information only in connection with your use of
+# Broadcom integrated circuit products.
+#  
+# 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+# PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+# REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+# OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+# DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+# NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+# ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+# CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+# OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+# 
+# 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+# BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+# INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+# ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+# TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+# THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+# WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+# ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+#
+# Initialization SBX (run commands) file
+#
+#       These are default commands that are read and executed by default
+#       when BCM boots up.  Typically this file is called sbx.soc and resides
+#       in the flash filesystem, NVRAM, or disk.
+#
+
+
+if $?1 "echo sbx.soc: arguments not supported; exit"
+if !$?unit "echo sbx.soc: no current unit; exit"
+
+# When running as daemon, output can be redirected to diag_log_file
+if !"expr $unit == 0" && $?diag_log_file \
+	"log file=$diag_log_file on;"
+
+expr $units - 1;local num_units $?
+echo "sbx.soc: unit $unit (of $num_units) device $devname"
+local quiet no
+local echo echo
+local rcdone \$sbx$unit
+if !"expr $sbxdone + 0" "local echo noecho; local quiet yes"
+
+# Set convenience local variables
+
+local qe2k_bscrn_lc 1
+echo "sbx.soc: qe2k_bscrn_lc $qe2k_bscrn_lc"
+
+# Board Configuration Setting
+#       This file uses configuration properties to know on which board
+#       it is running.  Currently one of following settings must be made:
+#
+if $?qe2k_bscrn_lc   "\
+   local brdtype 9; \
+   config add qe2k_benchscreen_board=1; \
+"
+
+echo "sbx.soc: brdtype $brdtype"
+
+if !$?brdtype " \
+  echo sbx.soc: no current brdtype; \
+  exit; \
+"
+
+## gsrao 100808
+echo "sbx.soc: unit $unit brdtype $brdtype pcidev $pcidev"
+
+board init type=$brdtype
+
+if $?diag_unit_mask && "expr ((1<<$unit) & $diag_unit_mask)==(1<<$unit)" "echo Skipping units based on diag_unit_mask=$diag_unit_mask.;exit"
+
+deb +Verbose
+
+echo "$unit:init soc"
+init soc
+
+#echo "$unit:init bcm"
+init bcm
+
+echo "$unit:init bcm done"
+
+## gsrao 092408
+## We need to call 'mcinit' since this provisions the fabric. This should
+## always be done after the last device is processed. Otherwise the registers
+## for the initial devices end up getting processed multiple times.
+
+## Use the following to turn on debugging.
+## dbm bcm tx rx pktdata verbose vverbose; \
+## dbm diag test; \
+## echo Running Test TR 112; \
+## attach; \
+## 0: tr 112 usefile=1 infile=/root/TEST/IN_DATA.bin outfile=/root/TEST/OUT_DATA.bin outfile1=/root/TEST/OUT_DATA_1.bin packets=1340 runtime=180 dualka=1; \
+## echo Clearing Counters; \
+## 0: pc clear; \
+## 1: pc clear; \
+
+if !"expr $unit == 1" "\
+  mcinit; \
+  echo Clearing Counters and Errors; \
+  echo; \
+  0: pe clear; \
+  1: pe clear; \
+  0: pc clear; \
+  1: pc clear; \
+"

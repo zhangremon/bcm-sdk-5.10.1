@@ -1,0 +1,89 @@
+# $Id: 56725_inline_tm.soc 1.1 Broadcom SDK $
+# $Copyright: Copyright 2011 Broadcom Corporation.
+# This program is the proprietary software of Broadcom Corporation
+# and/or its licensors, and may only be used, duplicated, modified
+# or distributed pursuant to the terms and conditions of a separate,
+# written license agreement executed between you and Broadcom
+# (an "Authorized License").  Except as set forth in an Authorized
+# License, Broadcom grants no license (express or implied), right
+# to use, or waiver of any kind with respect to the Software, and
+# Broadcom expressly reserves all rights in and to the Software
+# and all intellectual property rights therein.  IF YOU HAVE
+# NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+# IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+# ALL USE OF THE SOFTWARE.  
+#  
+# Except as expressly set forth in the Authorized License,
+#  
+# 1.     This program, including its structure, sequence and organization,
+# constitutes the valuable trade secrets of Broadcom, and you shall use
+# all reasonable efforts to protect the confidentiality thereof,
+# and to use this information only in connection with your use of
+# Broadcom integrated circuit products.
+#  
+# 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+# PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+# REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+# OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+# DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+# NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+# ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+# CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+# OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+# 
+# 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+# BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+# INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+# ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+# TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+# THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+# WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+# ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+#
+# Sirius Inline TM 
+#
+# HumV+ fabric configuration for Tr2+Sirius+HumV where 
+# Sirius is configured for inline TM
+#
+
+s cpu_control_1 0xffffffff
+ 
+mod port 9 4 higig2=1
+ 
+m EGR_PORT.hg2 HIGIG2=1
+m EGR_PORT.hg3 HIGIG2=1
+m EGR_PORT.hg4 HIGIG2=1
+m EGR_PORT.hg5 HIGIG2=1
+ 
+m XPORT_CONFIG.hg2 HIGIG2_MODE=1
+m XPORT_CONFIG.hg3 HIGIG2_MODE=1
+m XPORT_CONFIG.hg4 HIGIG2_MODE=1
+m XPORT_CONFIG.hg5 HIGIG2_MODE=1
+ 
+m MAC_TXCTRL.hg2 HIGIG2MODE=1
+m MAC_TXCTRL.hg3 HIGIG2MODE=1
+m MAC_TXCTRL.hg4 HIGIG2MODE=1
+m MAC_TXCTRL.hg5 HIGIG2MODE=1
+ 
+m MAC_rXCTRL.hg2 HIGIG2MODE=1
+m MAC_rXCTRL.hg3 HIGIG2MODE=1
+m MAC_rXCTRL.hg4 HIGIG2MODE=1
+m MAC_rXCTRL.hg5 HIGIG2MODE=1
+ 
+
+mod vlan 0x276 1 PORT_BITMAP=0x7ff81,HIGIG_TRUNK_OVERRIDE=0,VALID=1,STG=1,FID_ID=0,VLAN_PROFILE_PTR=0,VRF_ID=0,CLASS_ID=0,VLAN_CLASS_ID=0,L2_ENTRY_KEY_TYPE=0
+ 
+mod egr_vlan 0x276 1 UT_BITMAP=0,UT_PORT_BITMAP=0,PORT_BITMAP=0x7ff81,STG=1,VALID=1,OUTER_TPID_INDEx=0
+ 
+ 
+ 
+mod modport_map 2306 1 HIGIG_PORT_BITMAP=0x0800
+mod modport_map 2562 1 HIGIG_PORT_BITMAP=0x1000
+mod modport_map 2818 1 HIGIG_PORT_BITMAP=0x0200
+mod modport_map 3074 1 HIGIG_PORT_BITMAP=0x0400
+ 
+mod modport_map 2304 1 HIGIG_PORT_BITMAP=0x0800
+mod modport_map 2560 1 HIGIG_PORT_BITMAP=0x1000
+mod modport_map 2816 1 HIGIG_PORT_BITMAP=0x0200
+mod modport_map 3072 1 HIGIG_PORT_BITMAP=0x0400

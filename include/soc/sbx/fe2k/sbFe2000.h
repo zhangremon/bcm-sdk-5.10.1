@@ -1,0 +1,246 @@
+/* -*- Mode:c++; c-style:k&r; c-basic-offset:2; indent-tabs-mode: nil; -*- */
+/* vi:set expandtab cindent shiftwidth=2 cinoptions=\:0l1(0t0g0: */
+/*
+ *
+ * $Id: sbFe2000.h 1.4.52.1 Broadcom SDK $
+ *
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ *
+ * sbFe2000Common.h : FE2000 Common defines
+ *
+ *-----------------------------------------------------------------------------*/
+#ifndef _SB_FE_2000_H_
+#define _SB_FE_2000_H_
+
+#include <soc/sbx/fe2k_common/sbFe2000Common.h>
+
+#define SB_FE2000_HEADER_CAPTURE_SIZE_IN_BYTES 192
+
+#define SB_FE2000_PC_DMA_SRC_MM0_NARROW0 0
+#define SB_FE2000_PC_DMA_SRC_MM0_NARROW1 1
+#define SB_FE2000_PC_DMA_SRC_MM0_WIDE    2
+#define SB_FE2000_PC_DMA_SRC_MM0_INT0    3
+#define SB_FE2000_PC_DMA_SRC_MM0_INT1    4
+#define SB_FE2000_PC_DMA_SRC_MM1_NARROW0 5
+#define SB_FE2000_PC_DMA_SRC_MM1_NARROW1 6
+#define SB_FE2000_PC_DMA_SRC_MM1_WIDE    7
+#define SB_FE2000_PC_DMA_SRC_MM1_INT0    8
+#define SB_FE2000_PC_DMA_SRC_MM1_INT1    9
+#define SB_FE2000_PC_DMA_SRC_LR_INSTR    10
+#define SB_FE2000_PC_DMA_SRC_RC0         11
+#define SB_FE2000_PC_DMA_SRC_RC1         12
+
+#define SB_FE2000_PR_NUM_PRE 8
+#define SB_FE2000_PR_INIT_TIMEOUT 100
+#define SB_FE2000_PR_ENABLE_SR0 0
+#define SB_FE2000_PR_ENABLE_SR1 1
+#define SB_FE2000_PR_ENABLE_AG0 2
+#define SB_FE2000_PR_ENABLE_AG1 3
+#define SB_FE2000_PR_ENABLE_XG0 4
+#define SB_FE2000_PR_ENABLE_XG1 5
+#define SB_FE2000_PR_ENABLE_PCI 6
+#define SB_FE2000_PR_ENABLE_PED 7
+#define SB_FE2000_PR_PAGES_PREFETCHED 8
+
+#define SB_FE2000_PT_NUM_PTE 8
+#define SB_FE2000_PT_INIT_TIMEOUT 100
+#define SB_FE2000_PT_ENABLE_SR0 0
+#define SB_FE2000_PT_ENABLE_SR1 1
+#define SB_FE2000_PT_ENABLE_AG0 2
+#define SB_FE2000_PT_ENABLE_AG1 3
+#define SB_FE2000_PT_ENABLE_XG0 4
+#define SB_FE2000_PT_ENABLE_XG1 5
+#define SB_FE2000_PT_ENABLE_PCI 6
+#define SB_FE2000_PT_ENABLE_PPE 7
+
+#define SB_FE2000_QM_FREEPAGES_DEFAULT 0x720
+
+#define SB_FE2000_PB_BUFFER_SIZE_IN_BYTES 192
+#define SB_FE2000_PB_NUM_PACKET_BUFFERS 2
+#define SB_FE2000_PB_PAGES_PER_PACKET_BUFFER 1824
+
+#define SB_FE2000_PP_NUM_GLOBAL_STATION_MACS 16
+#define SB_FE2000_PP_NUM_PORT_STATION_MACS   4
+#define SB_FE2000_PP_NUM_IPV4_FILTERS        8
+#define SB_FE2000_PP_NUM_IPV6_FILTERS        4
+#define SB_FE2000_PP_NUM_QUEUES              256
+#define SB_FE2000_PP_NUM_NATIVE_MAPNUMBERS   32
+#define SB_FE2000_PP_NUM_CHANNELS            2
+
+#define SB_FE2000_LR_INSTRUCTION_SIZE  12
+#define SB_FE2000_LR_NUMBER_OF_STREAMS 6
+#define SB_FE2000_LR_NUMBER_OF_INSTRS 1024
+
+#define SB_FE2000_RC_NUM_SUPERBLOCKS 2
+
+/* These enums needs to be here so that tests can use them also.  */
+typedef enum _sbFe2000InitParamsMmLue0MemoryConnection
+{
+    SB_FE2000_MM_LUE0_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LUE0_CONNECTED_TO_INTERNAL_SINGLE_RAM0_OR_DOUBLERAM01 = 1,
+    SB_FE2000_MM_LUE0_CONNECTED_TO_INTERNAL_NARROWPORT_DDRII_PORT0 = 2,
+    SB_FE2000_MM_LUE0_CONNECTED_TO_ILLEGAL = 3
+} sbFe2000InitParamsMmLue0MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLue1MemoryConnection
+{
+    SB_FE2000_MM_LUE1_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LUE1_CONNECTED_TO_INTERNAL_SINGLE_RAM1 = 1,
+    SB_FE2000_MM_LUE1_CONNECTED_TO_INTERNAL_NARROWPORT_DDRII_PORT1 = 2,
+    SB_FE2000_MM_LUE1_CONNECTED_TO_ILLEGAL = 3
+} sbFe2000InitParamsMmLue1MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmCmu0MemoryConnection
+{
+  SB_FE2000_MM_CMU0_CONNECTED_TO_NO_RESOURCE = 0,
+  SB_FE2000_MM_CMU0_CONNECTED_TO_INTERNAL_SINGLE_RAM0 = 1,
+  SB_FE2000_MM_CMU0_CONNECTED_TO_NARROWPORT_DDRII_PORT0 = 2,
+  SB_FE2000_MM_CMU0_CONNECTED_TO_ILLEGAL = 3
+} sbFe2000InitParamsMmCmu0MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmCmu1MemoryConnection
+{
+  SB_FE2000_MM_CMU1_CONNECTED_TO_NO_RESOURCE = 0,
+  SB_FE2000_MM_CMU1_CONNECTED_TO_INTERNAL_SINGLE_RAM1 =1,
+  SB_FE2000_MM_CMU1_CONNECTED_TO_NARROWPORT_DDRII_PORT1 = 2,
+  SB_FE2000_MM_CMU1_CONNECTED_TO_ILLEGAL = 3
+} sbFe2000InitParamsMmCmu1MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmPmuMemoryConnection
+{
+  SB_FE2000_MM_PMU_CONNECTED_TO_NO_RESOURCE = 0,
+  SB_FE2000_MM_PMU_CONNECTED_TO_INTERNAL_SINGLE_RAM0 = 1,
+  SB_FE2000_MM_PMU_CONNECTED_TO_INTERNAL_SINGLE_RAM1 = 2,
+  SB_FE2000_MM_PMU_CONNECTED_TO_WIDEPORT_DDRII = 3
+} sbFe2000InitParamsMmPmuMemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLrp4MemoryConnection
+{
+    SB_FE2000_MM_LRP4_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LRP4_CONNECTED_TO_WIDEPORT_DDRII_PORT=1
+} sbFe2000InitParamsMmLrp4MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLrp3MemoryConnection
+{
+    SB_FE2000_MM_LRP3_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LRP3_CONNECTED_TO_INTERNAL_SINGLE_RAM1 = 1
+} sbFe2000InitParamsMmLrp3MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLrp2MemoryConnection
+{
+  SB_FE2000_MM_LRP2_CONNECTED_TO_NO_RESOURCE = 0,
+  SB_FE2000_MM_LRP2_CONNECTED_TO_INTERNAL_SINGLE_RAM0 = 1
+} sbFe2000InitParamsMmLrp2MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLrp1MemoryConnection
+{
+    SB_FE2000_MM_LRP1_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LRP1_CONNECTED_TO_NARROWPORT_DDRII_PORT1 =1
+} sbFe2000InitParamsMmLrp1MemoryConnection_t;
+
+typedef enum _sbFe2000InitParamsMmLrp0MemoryConnection
+{
+    SB_FE2000_MM_LRP0_CONNECTED_TO_NO_RESOURCE = 0,
+    SB_FE2000_MM_LRP0_CONNECTED_TO_NARROWPORT_DDRII_PORT0 =1
+} sbFe2000InitParamsMmLrp0MemoryConnection_t;
+
+
+typedef enum _sbFe2000InitParamsMmInternalRamConfiguration
+{
+    SB_FE2000_MM_RAM0_8KBY72_AND_RAM1_8KBY72   = 0,
+    SB_FE2000_MM_RAM0_16KBY36_AND_RAM1_8KBY72  = 1,
+    SB_FE2000_MM_RAM0_8KBY72_AND_RAM1_16KBY36  = 2,
+    SB_FE2000_MM_RAM0_16KBY36_AND_RAM1_16KBY36 = 3,
+    SB_FE2000_MM_RAM0_AND_RAM1_AS_SINGLE_16KBY72 = 4,
+    SB_FE2000_MM_RAM0_AND_RAM1_AS_ILLEGALO       = 5,
+    SB_FE2000_MM_RAM0_AND_RAM1_AS_ILLEGAL1       = 6,
+    SB_FE2000_MM_RAM0_AND_RAM1_AS_DOUBLE_32KBY36 = 7
+} sbFe2000InitParamsMmInternalRamConfiguration_t;
+
+typedef enum _sbFe2000InitParamsNarrowPortRamConfiguration
+{
+    SB_FE2000_MM_TWO_BY_9_RAMS_CONNECTED = 0,
+    SB_FE2000_MM_ONE_BY_18_RAM_CONNECTED = 1
+} sbFe2000InitParamsNarrowPortRamConfiguration_t;
+
+typedef enum _sbFe2000InitParamsWidePortRamConfiguration
+{
+    SB_FE2000_MM_TWO_BY_18_RAMS_CONNECTED = 0,
+    SB_FE2000_MM_ONE_BY_36_RAM_CONNECTED  = 1,
+    SB_FE2000_MM_ONE_BY_18_RAM_AND_TOLOWER_UPPER_DATAPIN_NOCONNECTION = 2,
+    SB_FE2000_MM_TWO_BY_9_RAM_AND_TOLOWER_UPPER_DATAPIN_NOCONNECTION  = 3
+} sbFe2000InitParamsWidePortRamConfiguration_t;
+
+typedef enum _sbFe2000InitParamsMmProtectionSchemes
+{
+    SB_FE2000_MM_36BITS_NOPROTECTION = 0,
+    SB_FE2000_MM_35BITS_1BITPARITY   = 1,
+    SB_FE2000_MM_34BITS_2BITPARITY   = 2,
+    SB_FE2000_MM_32BITS_4BITPARITY   = 3,
+    SB_FE2000_MM_30BITS_6BITSECECC   = 4,
+    SB_FE2000_MM_29BITS_6BITSECDED   = 5,
+    SB_FE2000_MM_PROTECTION_ILLEGAL0 = 6,
+    SB_FE2000_MM_PROTECTION_ILLEGAL1 = 7
+} sbFe2000InitParamsMmProtectionSchemes_t;
+
+typedef enum _sbFe2000InitParamsMmNarrowPort0SegmentAccessList
+{
+    SB_FE2000_MM_NARROWPORT0_ACCESS_LRP_INTERFACE0 =0,
+    SB_FE2000_MM_NARROWPORT0_ACCESS_CMU_INTERFACE0 =1,
+    SB_FE2000_MM_NARROWPORT0_ACCESS_LUE_INTERFACE0 =2
+} sbFe2000InitParamsMmNarrowPort0SegmentAccessList_t;
+
+typedef enum _sbFe2000InitParamsMmNarrowPort1SegmentAccessList
+{
+    SB_FE2000_MM_NARROWPORT1_ACCESS_LRP_INTERFACE1 =0,
+    SB_FE2000_MM_NARROWPORT1_ACCESS_CMU_INTERFACE1 =1,
+    SB_FE2000_MM_NARROWPORT1_ACCESS_LUE_INTERFACE1 =2
+} sbFe2000InitParamsMmNarrowPort1SegmentAccessList_t;
+
+typedef enum _sbFe2000InitParamsMmNarroPort1SegmentAccessList
+{
+    SB_FE2000_MM_WIDEPORT_ACCESS_LRP_INTERFACE4 =0,
+    SB_FE2000_MM_WIDEPORT_ACCESS_PMU_INTERFACE =1
+} sbFe2000InitParamsMmWidePortSegmentAccessList_t;
+
+#endif 

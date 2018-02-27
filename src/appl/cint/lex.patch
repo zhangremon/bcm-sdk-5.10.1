@@ -1,0 +1,108 @@
+/*
+ * $Id: lex.patch 1.2 Broadcom SDK $
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ *
+ * File:        lex.patch
+ * Purpose:     Add additional error checking to generated flex code
+ *              Patch validated with Flex 2.5.31 and 2.5.35
+ *              This is expected to apply with offsets from 2.5.31 to 2.5.34
+ *
+ */
+
+
+--- cint_c.lex.c	2010-04-07 07:02:55.569981000 -0700
++++ cint_c.lex.c.new	2010-04-06 18:52:37.391795000 -0700
+@@ -892,6 +892,13 @@
+ #define YY_RULE_SETUP \
+ 	YY_USER_ACTION
+ 
++/*
++ * BRCM: Check buffer stack
++ */
++#ifndef YY_CHECK_BUFFER_STACK
++#define YY_CHECK_BUFFER_STACK if (!yyg->yy_buffer_stack) YY_FATAL_ERROR("buffer error")
++#endif
++
+ /** The main scanner function which does all the work.
+  */
+ YY_DECL
+@@ -917,6 +924,7 @@
+ #ifdef YY_USER_INIT
+ 		YY_USER_INIT;
+ #endif
++		YY_CHECK_BUFFER_STACK;
+ 
+ 		if ( ! yyg->yy_start )
+ 			yyg->yy_start = 1;	/* first start state */
+@@ -1542,6 +1550,7 @@
+ 		/* Undo the effects of YY_DO_BEFORE_ACTION. */
+ 		*yy_cp = yyg->yy_hold_char;
+ 		YY_RESTORE_YY_MORE_OFFSET
++		YY_CHECK_BUFFER_STACK;
+ 
+ 		if ( YY_CURRENT_BUFFER_LVALUE->yy_buffer_status == YY_BUFFER_NEW )
+ 			{
+@@ -1986,6 +1995,7 @@
+ 
+ 	if ( ! YY_CURRENT_BUFFER ){
+         cint_c_ensure_buffer_stack (yyscanner);
++        YY_CHECK_BUFFER_STACK;
+ 		YY_CURRENT_BUFFER_LVALUE =
+             cint_c__create_buffer(yyin,YY_BUF_SIZE ,yyscanner);
+ 	}
+@@ -2019,6 +2029,7 @@
+ 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = yyg->yy_n_chars;
+ 		}
+ 
++        YY_CHECK_BUFFER_STACK;
+ 	YY_CURRENT_BUFFER_LVALUE = new_buffer;
+ 	cint_c__load_buffer_state(yyscanner );
+ 
+@@ -2176,6 +2187,7 @@
+ 	/* Only push if top exists. Otherwise, replace top. */
+ 	if (YY_CURRENT_BUFFER)
+ 		yyg->yy_buffer_stack_top++;
++        YY_CHECK_BUFFER_STACK;
+ 	YY_CURRENT_BUFFER_LVALUE = new_buffer;
+ 
+ 	/* copied from cint_c__switch_to_buffer. */

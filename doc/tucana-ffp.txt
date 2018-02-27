@@ -1,0 +1,227 @@
+/*
+ * $Id: tucana-ffp.txt 1.1.582.2 Broadcom SDK $
+ * $Copyright: Copyright 2011 Broadcom Corporation.
+ * This program is the proprietary software of Broadcom Corporation
+ * and/or its licensors, and may only be used, duplicated, modified
+ * or distributed pursuant to the terms and conditions of a separate,
+ * written license agreement executed between you and Broadcom
+ * (an "Authorized License").  Except as set forth in an Authorized
+ * License, Broadcom grants no license (express or implied), right
+ * to use, or waiver of any kind with respect to the Software, and
+ * Broadcom expressly reserves all rights in and to the Software
+ * and all intellectual property rights therein.  IF YOU HAVE
+ * NO AUTHORIZED LICENSE, THEN YOU HAVE NO RIGHT TO USE THIS SOFTWARE
+ * IN ANY WAY, AND SHOULD IMMEDIATELY NOTIFY BROADCOM AND DISCONTINUE
+ * ALL USE OF THE SOFTWARE.  
+ *  
+ * Except as expressly set forth in the Authorized License,
+ *  
+ * 1.     This program, including its structure, sequence and organization,
+ * constitutes the valuable trade secrets of Broadcom, and you shall use
+ * all reasonable efforts to protect the confidentiality thereof,
+ * and to use this information only in connection with your use of
+ * Broadcom integrated circuit products.
+ *  
+ * 2.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS
+ * PROVIDED "AS IS" AND WITH ALL FAULTS AND BROADCOM MAKES NO PROMISES,
+ * REPRESENTATIONS OR WARRANTIES, EITHER EXPRESS, IMPLIED, STATUTORY,
+ * OR OTHERWISE, WITH RESPECT TO THE SOFTWARE.  BROADCOM SPECIFICALLY
+ * DISCLAIMS ANY AND ALL IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY,
+ * NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, LACK OF VIRUSES,
+ * ACCURACY OR COMPLETENESS, QUIET ENJOYMENT, QUIET POSSESSION OR
+ * CORRESPONDENCE TO DESCRIPTION. YOU ASSUME THE ENTIRE RISK ARISING
+ * OUT OF USE OR PERFORMANCE OF THE SOFTWARE.
+ * 
+ * 3.     TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL
+ * BROADCOM OR ITS LICENSORS BE LIABLE FOR (i) CONSEQUENTIAL,
+ * INCIDENTAL, SPECIAL, INDIRECT, OR EXEMPLARY DAMAGES WHATSOEVER
+ * ARISING OUT OF OR IN ANY WAY RELATING TO YOUR USE OF OR INABILITY
+ * TO USE THE SOFTWARE EVEN IF BROADCOM HAS BEEN ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES; OR (ii) ANY AMOUNT IN EXCESS OF
+ * THE AMOUNT ACTUALLY PAID FOR THE SOFTWARE ITSELF OR USD 1.00,
+ * WHICHEVER IS GREATER. THESE LIMITATIONS SHALL APPLY NOTWITHSTANDING
+ * ANY FAILURE OF ESSENTIAL PURPOSE OF ANY LIMITED REMEDY.$
+ *
+ *
+ */
+------------------------------------------------------------------------------
+	       Notes on the Tucana Fast Filter Processor
+		 Curt McDowell, Broadcom Corp. 01-09-03
+		  Dan Talayco, Broadcom Corp. 09-10-02
+			 Last Updated: 01-09-03
+------------------------------------------------------------------------------
+
+1. Background Information on the FSEL field
+
+1.1. StrataSwitch
+
+The IRULE and GIRULE entries are kept in sorted order.  Each rule entry
+has a 3-bit FSEL field, which points to one of the 8 possible masks.
+
+Because the filter rules are kept in sorted order, and the FSEL field is
+the most significant field in the sort key, it happens that all rule
+entries with a given FSEL are grouped together.
+
+The filter processor searches the entire rules table eight times, once
+per mask.  A rule can match only if its FSEL field equals the mask
+number being searched.
+
+1.2. Draco
+
+The speed of FFP lookups became a bottleneck due to greater packet rates
+and greater number of masks to search.
+
+Noting that all rules corresponding to the same mask (FSEL value) are
+grouped together, the solution is to search only the group of rules
+corresponding to the mask being searched.
+
+To implement this, each mask was augmented with a RULES_START and
+RULES_COUNT field denoting the beginning and size of the group of rules
+corresponding to the mask.  It is software's responsibility to keep
+RULES_START and RULES_COUNT up to date during insert and delete
+operations.
+
+The software computes and caches the RULES_START and RULES_COUNT values
+internally for all chips.  This is done even for StrataSwitch where the
+performance of software inserts, deletes, and lookups benefits greatly.
+
+Note that the existence of RULES_START and RULES_COUNT actually makes
+the FSEL field redundant.  However, on Draco it is still referenced by
+the hardware and all of the rules must be in sorted order.
+
+1.3. Tucana
+
+To save die space on Tucana, the FSEL field is not referenced nor is it
+implemented in the rules memory.  The rules table does not even need to
+be fully sorted; only blocks of rules corresponding to a given mask must
+be contiguous and sorted.
+
+2. Software Utilization of the FSEL field
+
+Software commonly passes around rule table entries which contain the
+FSEL field.  Various routines look at the FSEL field in order to know
+which mask the rule belongs to.
+
+The absence of the FSEL field would mean rewriting a huge amount of
+software from the ground up: sorted memory insert, delete, and lookup
+routines, entry allocation, binary searches, filter rule allocations and
+management, the entire BCM filter API implementation, and all
+diagnostics commands that allow writing, dumping, and otherwise
+manipulating filter entries.
+
+We have avoided this for Tucana using a very simple approach comprising
+the following:
+
+2.1. FSEL is still in the regsfile
+
+The FSEL field remains in the register file even though it is not
+implemented in the hardware.  Its existence in the register file implies
+its existence in rules entries that are passed around in the software.
+Also, while the FSEL field is written and read in the S-Channel
+operation it is not implemented in the hardware so it will not be stored
+persistently.
+
+2.2. FSEL is implemented in software
+
+In the lowest level memory access routines, soc_mem_read and
+soc_mem_write, software caches the value of the FSEL field for each rule
+entry.  On write, FSEL is saved in a cache in the soc_control structure,
+and on read, FSEL is overwritten into the entry after it is read from
+the hardware.
+
+2.3. No other software is aware of this
+
+None of soc_mem_insert, soc_mem_delete, soc_mem_lookup, or other higher
+level routine is aware that the FSEL field is being emulated.  Therefore
+the rules table is maintained exactly as it was on StrataSwitch and
+Draco and all higher level code is shared with these chips.  This
+includes the memory read/write diagnostics.
+
+3. Ingress Port Direction Vector
+
+A filter rule in StrataSwitch and Draco may be qualified to match only a
+single ingress port by means of the IPORT field in the rules entry.
+However, Tucana supports qualifying a filter to match on any subset of
+ingress ports.
+
+3.1. Hardware Implementation
+
+The IPORT field is replaced by an IPORT_BITMAP field.  However, a little
+consideration reveals that the implementation is not straightforward.  A
+difficulty arises when multiple rules are inserted that differ only by
+IPORT_BITMAP.  These rules will be grouped together in the rules table,
+but there is actually no way the hardware can complete its binary search
+to find which of these entries' bitmaps contains the packet ingress
+port.
+
+The solution to this is to add a second port bitmap called
+IPORT_DIRECTION to each rule.
+
+A "group" is a bunch of entries with the same key and different port
+bitmaps.  These will be next to each other in the table.  The
+IPORT_DIRECTION field is referred to as the "direction vector."
+
+Assuming the hardware has matched the rest of the key and is looking for
+a source port match:
+
+    (1) If the port's bit in IPORT_BITMAP is set, the search
+        is complete and successful.
+
+    (2) Else check the port's bit in the IPORT_DIRECTION vector.
+
+        If the direction bit is 0, the binary search continues downward
+        in the table toward lower-numbered entries.
+
+        If the direction bit is 1, the binary search continues upward in
+        the table toward higher-numbered entries.
+
+3.2. Software Conventions
+
+It is the responsibility of software to maintain the the IPORT_DIRECTION
+bits during all insert and delete operations such that they are always
+consistent and correct.
+
+Some software conventions are adopted to:
+
+    (1) Keep the table consistent all during the course of update
+
+    (2) Minimize the amount of ancillary state that must be maintained
+
+    (3) Minimize the amount of shuffling of entries required for inserts
+        and deletes.
+
+3.2.1. Adding an entry to the table.
+
+    (1) When an entry is added to a group, it is always added at the end
+        of the group.
+
+    (2) The direction vector for a new entry is the OR of the port
+        bitmaps of existing entries in the same group.
+
+    (3) The direction vectors of existing entries do not need to be
+        altered when an entry is added to a group.
+
+3.2.2. Deleting an entry from the table
+
+Note: the table should be locked until both steps have been completed.
+
+    (1) When an entry is deleted from the group, later entries are
+        shifted down to fill in the table.  The table will still be
+        consistent. (Searches for those ports in the removed entry will
+        fail.)
+
+    (2) When deleting an entry, the direction vectors of the group's
+        remaining entries must have the bits of the removed entry's port
+        bitmap cleared.  This only needs to happen to entries in the
+        group following the deleted entry.
+
+3.2.3. Programming requirements (in addition to the above)
+
+    (1) The source port bitmaps for different entries in a group must
+        not overlap.
+
+3.3. Software Implementation
+
+The soc_mem_insert, soc_mem_delete, and soc_mem_lookup routines are
+aware of the software conventions.  Higher software layers need not be
+concerned with the details.
